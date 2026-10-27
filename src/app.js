@@ -67,7 +67,6 @@ const NAV = [
   { id: 'requests',  label: 'Contracts',   icon: 'requests' },   // the module once called Requests; ids and routes keep the old name
   /* hidden for now (16 Oct); the view and #horizon still work */
   // { id: 'horizon',   label: 'Horizon',     icon: 'routines' },   // legal's standing watch on the law (horizon.js)
-  { id: 'matters',   label: 'Matters',     icon: 'matters' },    // a piece of legal work from opened to closed (matters.js)
   { id: 'projects',  label: 'Projects',    icon: 'projects' },
 ];
 

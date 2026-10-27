@@ -26,11 +26,13 @@ function moData() {
   state.mo.rules ||= structuredClone(MO_RULES_SEED);
   return state.mo;
 }
-const moGet = (id) => moData().matters.find(m => m.id === id) || null;
+/* the matters are Intake's requests that are matters (step 4) */
+const moMatters = () => typeof mxIntake === 'function' ? mxIntake().filter(r => r.mt).map(moAsMatter) : [];
+const moGet = (id) => moMatters().find(m => m.id === id) || null;
 const moFirstName = (n) => n === USER.name ? 'You' : n.split(' ')[0];
 const moMe = () => USER.name.split(' ')[0];
 const moIsClosed = (m) => m.status === 'closed';
-const moOpenMatters = () => moData().matters.filter(m => !moIsClosed(m));
+const moOpenMatters = () => moMatters().filter(m => !moIsClosed(m));
 
 /* the number people see: ours, or the client's code and a number */
 const moNum = (m) => moData().byClient ? `${MO_CLIENTS[m.client || 0][1]} · ${m.id.split('-')[1].padStart(4, '0')}` : m.id;
@@ -50,7 +52,13 @@ const moDates = (m) => [...m.dates].sort((a, b) => (a.d < b.d ? -1 : 1));
 const moUpcoming = (m) => moIsClosed(m) ? [] : moDates(m).filter(d => moDays(d.d) >= 0);
 
 /* something happened: it goes on the matter's timeline */
-const moLog = (m, kind, text, who = USER.name) => { m.tl.push({ when: mxNow(), kind, text, who }); m.updated = mxNow(); };
+const moLog = (m, kind, text, who = USER.name) => {
+  m.tl.push({ when: mxNow(), kind, text, who }); m.updated = mxNow();
+  const r = m.request; if (!r) return;
+  const first = who.split(' ')[0];
+  (r.activity ||= []).push(text.startsWith(first + ' ') ? { who, what: text.slice(first.length + 1), when: mxNow() }
+    : { who: 'Clavia', ev: 'clavia', what: 'noted: ' + text, when: mxNow() });
+};
 
 /* where a matter stands: the request's marks, in the same colours */
 const MO_ST = {
@@ -145,12 +153,16 @@ const moKindKey = (k) => ({ Decision: 'decision', Task: 'task', Email: 'email', 
 const moKindIc = (k) => h('span', { class: 'mo-kic', html: k === 'Clavia' || k === 'Chat' ? SPARK_ONE : MO_IC(MO_ICONS[k] || MO_ICONS.Matter, 14) });
 
 /* draw again where you are: the page keeps its scroll */
+/* on a request that is a matter, the matter's tabs are the request's: Tasks, Documents, Details, Deal Team… */
+const MO_REQ_TAB = { overview: 'summary', tasks: 'mtasks', decisions: 'mdecisions', docs: 'docs', files: 'docs', details: 'details', people: 'team', activity: 'activity', updates: 'activity', chats: 'activity', timeline: 'activity' };
+const moOnRequest = () => state.view === 'intake';
+const moSetTab = (k) => { if (moOnRequest()) MX.intake.tab = MO_REQ_TAB[k] || 'summary'; else MX.matters.tab = k; };
 function moRedraw() {
   const keep = ['.rqp-left-in', '.mo-ask-body', '#view'].map(q => [q, document.querySelector(q)?.scrollTop || 0]);
-  go('matters');
+  go(moOnRequest() ? 'intake' : 'matters');
   for (const [q, top] of keep) { const el = document.querySelector(q); if (el) el.scrollTop = top; }
 }
-const moGo = (id, tab) => { MX.matters.open = id; MX.matters.tab = tab || 'overview'; go('matters'); document.getElementById('view').scrollTop = 0; };
+const moGo = (id, tab) => { MX.intake.tab = MO_REQ_TAB[tab || 'overview'] || 'summary'; MX.intake.open = null; mxOpen('intake', id); document.getElementById('view').scrollTop = 0; };
 
 /* ── a dialog, made the way Submit New Request is ── */
 function moDialog({ title, sub, body, foot, wide, label }) {
@@ -189,6 +201,11 @@ const moClaviaSays = (...kids) => h('div', { class: 'mo-says' }, h('span', { cla
    The list page
 ================================================================== */
 function mattersView() {
+  /* step 4: matters live in Intake; the old address opens Intake's Matters view, or the matter itself */
+  const id = /^(?:MT|RQ)-\d+/.exec(MX.matters.open || '');
+  MX.matters.open = null;
+  setTimeout(() => { if (id && moGet(id[0])) moGo(id[0]); else { MX.intake.list.tab = 'matters'; MX.intake.open = null; go('intake'); } }, 0);
+  return h('div', {});
   const d = moData();
   if (MX.matters.open === 'new') return moCreatePage();
   const asker = /^(MT-\d+)\/asker$/.exec(MX.matters.open || '');
@@ -221,7 +238,8 @@ function moList(d) {
   page.classList.add('mo');
   return page;
 }
-const moView = (k) => () => { MX.matters.list.tab = k; go('matters'); };
+/* the matter views are views of Intake's list now */
+const moView = (k) => () => { MX.intake.list.tab = ({ open: 'matters', all: 'matters', tasks: 'mtasks', dates: 'dates', needs: 'needs' })[k] || k; MX.intake.open = null; go('intake'); };
 
 /* ── Overview: what needs you today ── */
 /* what needs you today, most pressing first */
@@ -233,19 +251,19 @@ function moNeeds(d, ctx = {}) {
   const teamLate = open.flatMap(m => moOpenTasks(m).filter(moLate).map(t => ({ t, m })));
   const week = myTasks.filter(x => x.t.due && moDays(x.t.due) <= 7);
   const soon = open.flatMap(m => moUpcoming(m).filter(x => moDays(x.d) <= 21).map(x => ({ ...x, m }))).sort((a, b) => (a.d < b.d ? -1 : 1));
-  const orbis = moGet('MT-208');
-  const rq = mxIntake().find(r => r.id === mxData().orbisRq && !r.matter);
+  const orbis = moMatters().find(m => m.orbis) || null;
+  const rq = mxIntake().find(r => r.id === mxData().orbisRq && !r.matter && !r.mt);
 
   /* what needs you, most pressing first */
   const items = [];
   if (!orbis && rq) items.push({ hi: true, chip: 'From Intake', title: rq.title, meta: [`${rq.submitter}, finance`, pbWhen(rq.created), '2 files', '£64,000 claimed'],
-    says: 'Open it as a dispute matter. Clavia brings across the facts and files, so nothing is typed twice.',
-    act: ['Open as a Matter', () => moFromRequest(rq)], ask: () => mxOpen('intake', rq.id), askLabel: 'See the Request' });
+    says: 'Turn it into a dispute matter. It keeps its number, and Clavia brings across the facts and files, so nothing is typed twice.',
+    act: ['Turn into a Matter', () => moFromRequest(rq)], ask: () => mxOpen('intake', rq.id), askLabel: 'See the Request' });
   if (orbis && !moIsClosed(orbis) && orbis.decisions.some(x => x.st === 'flag')) items.push({ hi: true, chip: 'Decision', title: 'New delivery records may change a decision',
     meta: [orbis.title, '£22,800 held back', 'New delivery records'], says: 'Only the May delivery may count now: £11,400, not £22,800.',
-    act: ['Review Decision', () => moGo('MT-208', 'decisions')] });
+    act: ['Review Decision', () => moGo(orbis.id, 'decisions')] });
   if (orbis && !moIsClosed(orbis) && !orbis.keptOut.length) items.push({ title: 'Matt used to work at Orbis', sub: `Clavia suggests keeping him out of the ${orbis.title}`,
-    st: ['Access', 'Today'], act: ['Review', () => { moGo('MT-208', 'people'); }] });
+    st: ['Access', 'Today'], act: ['Review', () => { moGo(orbis.id, 'people'); }] });
   for (const { t, m } of myTasks.filter(x => moLate(x.t))) items.push({ title: t.t, sub: `${m.title} · task`, st: ['Overdue', moSay(t.due)], late: true, act: ['Mark Done', () => moTick(m, t)] });
   for (const { t, m } of myTasks.filter(x => x.t.due && moDays(x.t.due) === 0)) items.push({ title: t.t, sub: `${m.title} · ${moOpenTasks(m).length} open tasks`, st: ['Due today', moSay(t.due)], act: ['Open', () => moGo(m.id, 'tasks')] });
   if (orbis && !moIsClosed(orbis)) { const t = orbis.tasks.find(x => x.proof && x.st === 'open'); if (t) items.push({ title: 'Delivery records for May and June', sub: `${orbis.title} · waiting on Tom`, st: ['Waiting', moSay(t.due)], act: ['Nudge Tom', () => pbToast('Clavia sent Tom a reminder in Teams')] }); }
@@ -323,7 +341,7 @@ const MO_ASK_ALL = {
     return mine.length ? `You have ${mxPlural(mine.length, 'task')} due in the next 7 days:\n\n${mine.map(x => '• ' + x).join('\n')}` : 'Nothing is due from you in the next 7 days.';
   },
   'Which hearings are coming up?': () => {
-    const hs = moData().matters.flatMap(m => moUpcoming(m).filter(x => x.kind === 'Hearing').map(x => `${moSay(x.d)}: ${x.what} (${m.title}, ${m.owner})`));
+    const hs = moMatters().flatMap(m => moUpcoming(m).filter(x => x.kind === 'Hearing').map(x => `${moSay(x.d)}: ${x.what} (${m.title}, ${m.owner})`));
     return hs.length ? `${mxPlural(hs.length, 'hearing')} coming up:\n\n${hs.map(x => '• ' + x).join('\n')}` : 'No hearings are coming up.';
   },
   'Which matters are waiting on someone else?': () => {
@@ -432,7 +450,7 @@ function moTasksView(d) {
   const groups = [['Overdue', (n) => n != null && n < 0], ['Today and Tomorrow', (n) => n === 0 || n === 1], ['This Week', (n) => n >= 2 && n <= 7], ['Later', (n) => n == null || n > 7]];
   return h('div', { class: 'mo-tasks' },
     h('div', { class: 'mo-tasks-bar' }, moPills([['mine', `Mine · ${all.filter(of.mine).length}`], ['others', `Waiting on Others · ${all.filter(of.others).length}`], ['team', `Whole Team · ${all.length}`]], scope,
-      (k) => { MX.matters.scope = k; go('matters'); }), h('span', { class: 'mo-faint' }, 'Ticking a task here ticks it on the matter.')),
+      (k) => { MX.matters.scope = k; go('intake'); }), h('span', { class: 'mo-faint' }, 'Ticking a task here ticks it on the matter.')),
     ...groups.map(([label, test]) => {
       const rows = list.filter(x => test(moDays(x.t.due)));
       if (!rows.length) return null;
@@ -466,7 +484,7 @@ function moTick(m, t) {
 /* ── Key Dates: every hearing and deadline ── */
 function moDatesView(d) {
   const st0 = MX.matters.dates;
-  const items = () => d.matters.flatMap(m => m.dates.map((x, i) => ({ ...x, id: m.id + ':' + i, m, owner: m.owner })));
+  const items = () => moMatters().flatMap(m => m.dates.map((x, i) => ({ ...x, id: m.id + ':' + i, m, owner: m.owner })));
   const t = mxTable({
     label: 'Key dates', st: MX.matters.dates, empty: 'No key dates yet.',
     grid: 'minmax(120px, .8fr) minmax(220px, 1.8fr) minmax(200px, 1.4fr) minmax(130px, 1fr) minmax(90px, .7fr) minmax(150px, 1fr) 32px',
@@ -529,8 +547,8 @@ const moTypeOf = (r) => /dispute|owe|claim|court|tribunal/i.test(r.title + ' ' +
 /* the Open a Matter dialog: what came across, the first tasks, who can see it */
 function moFromRequest(r) {
   if (!r) return;
-  if (r.matter && moGet(r.matter)) return moGo(r.matter);
-  const orbis = r.id === mxData().orbisRq && !moGet('MT-208');
+  if (r.mt) return mxOpen('intake', r.id);
+  const orbis = r.id === mxData().orbisRq;
   const f = { name: orbis ? 'Orbis supplier dispute' : r.title, type: moTypeOf(r), keep: [true, true, true], priv: false };
   const first = r.submitter.split(' ')[0];
   const tasks = () => orbis ? [['Collect the supplier contract and all invoices', USER.name, null], ['Get delivery records for May and June from Tom', 'Tom Becker', 2], ['Check what the contract says about late delivery', USER.name, 3]]
@@ -545,7 +563,7 @@ function moFromRequest(r) {
   const ruleOwner = moRuleOwner(f.type);
   f.owner = USER.name;
   const dlg = moDialog({
-    title: 'Open a Matter', sub: `From ${r.submitter}’s request ${r.id}`, wide: true,
+    title: 'Turn into a Matter', sub: `${r.id} keeps its number. It gains tasks, key dates, decisions and money.`, wide: true,
     body: () => [
       moField('Matter Name', moInput(f.name, (v) => { f.name = v; })),
       moField('Kind of Work', moPills(MO_TYPES, f.type, (k) => { f.type = k; dlg.paint(); })),
@@ -565,25 +583,23 @@ function moFromRequest(r) {
       h('div', { class: 'mo-dlg-sec' }, h('div', { class: 'mo-dlg-cap' }, 'Who can see it'),
         moCheck(f.priv, 'Private', f.priv ? `Only you and ${first} can open it.` : 'Off: anyone in legal can find it. Turn this on for sensitive matters.', () => { f.priv = !f.priv; dlg.paint(); })),
     ],
-    foot: (close) => [h('span', { class: 'mo-faint mo-foot-say' }, `${first} is told when the matter opens.`), moBtn('Cancel', close), moBtn('Open Matter', () => {
+    foot: (close) => [h('span', { class: 'mo-faint mo-foot-say' }, `${first} is told when the matter opens.`), moBtn('Cancel', close), moBtn('Turn into a Matter', () => {
       close();
-      const d = moData();
-      let m;
-      if (orbis) m = moOrbis(r.id, f.keep, f.priv);
-      else {
-        const id = 'MT-' + (Math.max(208, ...d.matters.map(x => +x.id.split('-')[1])) + 1);
-        m = moBlankMatter(id, f.name.trim() || r.title, f.type, { asked: [r.submitter, r.team || ''], from: r.id, priv: f.priv,
-          facts: facts.filter(x => x[1] !== '—' && x[0] !== 'Asked by'), tasks: tasks().filter((_, i) => f.keep[i]).map(([t, who, due]) => moT(t, who, due)),
-          files: files.map(n => ({ kind: 'file', from: r.submitter, name: n, note: `From ${r.id}`, when: mxNow() })), where: `Opened from ${first}’s request: ${r.title}. Clavia keeps this line up to date as emails, files and tasks come in.` });
-      }
-      if (orbis) m.title = f.name.trim() || m.title;
-      m.source = r.source || 'manual';
-      if (f.owner !== m.owner) { m.people = [[f.owner, 'Owner'], ...m.people.filter(p => p[1] !== 'Owner')]; m.owner = f.owner; }
+      /* one piece of work, one item: the request itself takes the matter's parts */
+      let base;
+      if (orbis) base = moOrbis(r.id, f.keep, f.priv);
+      else base = moBlankMatter(r.id, f.name.trim() || r.title, f.type, { asked: [r.submitter, r.team || ''], priv: f.priv,
+          facts: facts.filter(x => x[1] !== '—' && x[0] !== 'Asked by' && x[0] !== 'Kind of work' && x[0] !== 'Needed by'), tasks: tasks().filter((_, i) => f.keep[i]).map(([t, who, due]) => moT(t, who, due)),
+          where: `${r.title}. Clavia keeps this up to date as emails, files and tasks come in.` });
+      base.type = f.type; base.private = f.priv;
+      moAttachParts(r, base);
+      if (f.name.trim() && f.name.trim() !== r.title) r.title = f.name.trim();
+      r.stage = 1; r.attorney ||= f.owner; if (r.status === 'new') r.status = 'progress';
+      const m = moAsMatter(r);
       conflicts.forEach((c, i) => { if (f.out[i]) { m.keptOut.push({ who: c.who, why: `Used to work at ${c.org.replace(/ Ltd$/, '')} ${c.when}`, by: 'Clavia', when: mxNow() });
-        m.tl.push({ when: mxNow(), kind: 'Access', text: `Clavia’s conflict check kept ${c.who.split(' ')[0]} out: used to work at ${c.org.replace(/ Ltd$/, '')}`, who: 'Clavia' }); } });
-      d.matters.unshift(m);
-      r.matter = m.id; r.updated = mxNow(); r.attorney ||= USER.name; if (r.status === 'new') r.status = 'progress'; (r.activity ||= []).push({ who: USER.name, ev: 'status', what: `opened this as matter ${m.id}`, when: mxNow() });
-      save(); moGo(m.id); pbToast(`Matter ${m.id} opened. ${first} has been told.`);
+        moLog(m, 'Access', `Clavia kept ${c.who.split(' ')[0]} out of the matter: ${c.who.split(' ')[0]} used to work at ${c.org.replace(/ Ltd$/, '')} (conflict check)`, 'Clavia'); } });
+      r.updated = mxNow(); (r.activity ||= []).push({ who: USER.name, what: 'turned this into a matter', when: mxNow() });
+      save(); MX.intake.tab = 'summary'; MX.intake.open = null; mxOpen('intake', r.id); pbToast(`${r.id} is now a matter. ${first} has been told.`);
     }, true)],
   });
 }
@@ -597,18 +613,27 @@ function moBlankMatter(id, title, type, o = {}) {
     tl: [{ when: mxNow(), kind: 'Matter', text: `${moMe()} opened the matter${o.from ? ' from request ' + o.from : ''}`, who: USER.name }],
     ask: [], draft: '', keptOut: [], shares: [] };
 }
+/* a new piece of bigger work: a request in Intake that is a matter from the start */
+function moNewRequestMatter(title, type, o = {}) {
+  const r = { id: mxNextRq(), title, deal: null, counterparty: o.other || null, type: type === 'Contract' ? 'Contract review' : 'Advice', team: 'Legal',
+    attorney: o.owner || USER.name, status: 'progress', due: moDay(7), urgent: false, updated: mxNow(), created: mxNow(), submitter: USER.name, source: null,
+    detail: o.where || '', files: [], triaged: true, activity: [{ who: USER.name, what: 'started this as a matter', when: mxNow() }] };
+  const base = moBlankMatter(r.id, title, type, { facts: o.facts, where: o.where });
+  moAttachParts(r, base); r.stage = 0;
+  mxIntake().unshift(r); save();
+  return r;
+}
 function moBlank() {
-  const f = { name: '', type: 'Advice' };
+  const f = { name: '', type: 'Advice', owner: USER.name };
   const dlg = moDialog({
-    title: 'New Matter', sub: 'For work that didn’t come through Intake, for example something legal found itself.',
+    title: 'Start a Matter', sub: 'For bigger work: tasks, key dates, decisions and money from the start. It gets a request number like any other.',
     body: () => [moField('Name', moInput(f.name, (v) => { f.name = v; }, 'e.g. Review of the new supplier code of conduct')),
-      moField('Kind of Work', moPills(MO_TYPES, f.type, (k) => { f.type = k; dlg.paint(); })),
-      moField('Owner', h('span', { class: 'rqv-who' }, mxFace(USER.name, 'pb-av rqv-av'), USER.name)),
-      h('p', { class: 'mo-faint' }, `Clavia suggests 3 first tasks for ${f.type === 'Advice' || f.type === 'Employment' ? 'an' : 'a'} ${f.type.toLowerCase()} matter once it’s open.`)],
-    foot: (close) => [moBtn('Cancel', close), moBtn('Open Matter', () => {
-      const d = moData(), id = 'MT-' + (Math.max(208, ...d.matters.map(x => +x.id.split('-')[1])) + 1);
-      const m = moBlankMatter(id, f.name.trim() || 'Review of the new supplier code of conduct', f.type);
-      d.matters.unshift(m); save(); close(); moGo(m.id); pbToast(`Matter ${id} opened. Clavia suggested 3 first tasks.`);
+      moField('Kind of Work', moPills(MO_TYPES, f.type, (k) => { f.type = k; f.owner = USER.name; dlg.paint(); })),
+      moField('Owner', moPills([[USER.name, 'You'], ...(moRuleOwner(f.type) && moRuleOwner(f.type) !== USER.name ? [[moRuleOwner(f.type), `${moRuleOwner(f.type)} · usual for ${f.type.toLowerCase()} matters`]] : [])], f.owner, (k) => { f.owner = k; dlg.paint(); })),
+      h('p', { class: 'mo-faint' }, `Clavia suggests 3 first tasks for ${f.type === 'Advice' || f.type === 'Employment' ? 'an' : 'a'} ${f.type.toLowerCase()} matter.`)],
+    foot: (close) => [moBtn('Cancel', close), moBtn('Start Matter', () => {
+      const r = moNewRequestMatter(f.name.trim() || 'Review of the new supplier code of conduct', f.type, { owner: f.owner });
+      close(); MX.intake.tab = 'summary'; mxOpen('intake', r.id); pbToast(`${r.id} started as a matter. Clavia suggested 3 first tasks.`);
     }, true)],
   });
 }
@@ -654,7 +679,7 @@ function moPage(m) {
 
   const more = h('button', { class: 'br-dots', type: 'button', 'aria-label': 'More actions', 'data-tip': 'More Actions', html: PB_SVG.dots,
     onclick: (e) => { e.stopPropagation(); mxGlyphs(); menu(more, [
-      asker !== USER.name ? { label: `Message ${af}`, icon: 'ask', run: () => { MX.matters.tab = 'activity'; MX.matters.upd = { id: m.id, text: '', vis: 'shared' }; moRedraw(); setTimeout(() => document.querySelector('.mo-cmp-in')?.focus(), 60); } } : null,
+      asker !== USER.name ? { label: `Message ${af}`, icon: 'ask', run: () => { moSetTab('activity'); MX.matters.upd = { id: m.id, text: '', vis: 'shared' }; moRedraw(); setTimeout(() => document.querySelector('.mo-cmp-in')?.focus(), 60); } } : null,
       !closed ? { label: 'Hand Over', icon: 'share', run: () => moHandOver(m) } : null,
       !closed ? { label: 'Close Matter', icon: 'use', run: () => moClose(m) } : { label: 'Reopen', icon: 'use', run: () => moReopen(m) },
       asker !== USER.name ? { label: `Open ${af}’s View`, icon: 'open', run: () => { MX.matters.open = m.id + '/asker'; go('matters'); } } : null,
@@ -833,7 +858,7 @@ function moDocPane(m) {
       h('div', { class: 'rqp-bar-r' },
         tool('Ask Clavia About It', h('span', { class: 'mo-tool-spark', html: SPARK_ONE }), () => moOpenAsk(m, `What does “${f.name}” say?`)),
         tool('Comments', I('<path d="M6.5 4.5h11a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11l-4.2 3.3a.5.5 0 0 1-.8-.4v-2.9h.5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z"/>'), () => {
-          MX.matters.tab = 'activity'; MX.matters.upd = { id: m.id, text: `On “${f.name}”: `, vis: 'legal' }; moRedraw(); setTimeout(() => { const t = document.querySelector('.mo-cmp-in'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 60); }),
+          moSetTab('activity'); MX.matters.upd = { id: m.id, text: `On “${f.name}”: `, vis: 'legal' }; moRedraw(); setTimeout(() => { const t = document.querySelector('.mo-cmp-in'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 60); }),
         tool('Download', I('<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M4.5 17v1.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V17"/>'), () => pbToast('Downloading')),
         tool('Email with Outlook', h('img', { src: 'assets/brand/outlook.svg', alt: '' }), () => pbToast(`Opens a new email in Outlook with “${f.name}” attached`)),
         !email ? tool('Open in Word', h('img', { src: 'assets/brand/word.svg', alt: '' }), () => pbToast('Opens in Word'), 'rqp-tool--word') : null,
@@ -849,7 +874,7 @@ function moDocPane(m) {
 
 const moSec = (title, right, ...kids) => h('section', { class: 'rqv' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, title), right || null), ...kids.filter(Boolean));
 const moAllBtn = (label, run) => h('button', { class: 'rqv-all mo-all', type: 'button', onclick: run }, label, h('span', { html: MO_IC('<path d="M9 6l6 6-6 6"/>', 12) }));
-const moTabTo = (k) => () => { MX.matters.tab = k; moRedraw(); };
+const moTabTo = (k) => () => { moSetTab(k); moRedraw(); };
 const moOpenAsk = (m, q) => { MX.matters.ask = { id: m.id, conv: [] }; if (q) moAsk(m, q); else moRedraw(); };
 
 /* ── Overview ── */
@@ -898,7 +923,7 @@ function moSummary(m, nextTask, dates) {
 function moTabTasks(m) {
   const closed = moIsClosed(m);
   const order = [...m.tasks].sort((a, b) => (a.st === 'open') !== (b.st === 'open') ? (a.st === 'open' ? -1 : 1) : (a.due || '9') < (b.due || '9') ? -1 : 1);
-  const adding = h('div', { class: 'rqp-addf', hidden: true });
+  const adding = h('div', { class: 'rqp-addf mo-addtask', hidden: true });
   const newIn = h('input', { class: 'rqp-addf-in', type: 'text', placeholder: 'What needs doing?', onkeydown: (e) => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') adding.hidden = true; } });
   const addTask = () => { const t = newIn.value.trim(); if (!t) return; m.tasks.push(moT(t, USER.name, 5)); moLog(m, 'Task', `${moMe()} added a task: ${t}`); save(); moRedraw(); pbToast('Task added, due in 5 days'); };
   adding.append(newIn, h('button', { class: 'btn btn--primary', type: 'button', onclick: addTask }, 'Add'));
@@ -934,7 +959,7 @@ function moTabFiles(m) {
       !closed ? h('button', { class: 'btn mo-fup', type: 'button', onclick: () => pbToast('Upload a file from your computer, or drop it on this page') }, icon('plus', 'ico ico-14'), 'Add a File') : null),
     list.length ? h('div', { class: 'mo-ftable' },
       h('div', { class: 'mo-frow mo-fhead' }, h('span', {}, 'Name'), h('span', {}, 'From'), h('span', {}, 'Added')),
-      ...list.map(f => h('button', { class: 'mo-frow' + (f === moShownDoc(m) ? ' is-on' : ''), type: 'button', onclick: () => { MX.matters.doc = { id: m.id, i: m.files.indexOf(f) }; moRedraw(); } },
+      ...list.map(f => h('button', { class: 'mo-frow' + (!m.request && f === moShownDoc(m) ? ' is-on' : ''), type: 'button', onclick: () => { if (m.request) return moOpenFile(m, f); MX.matters.doc = { id: m.id, i: m.files.indexOf(f) }; moRedraw(); } },
         h('span', { class: 'mo-fname' }, f.kind === 'email' ? h('span', { class: 'mo-feed-ic is-email' }, moKindIc('Email')) : mxTile('file', mxExt(f.name)),
           h('span', { class: 'mo-late-t' }, h('span', { class: 'mo-fn' }, f.name), h('span', { class: 'mo-faint' }, [f.kind === 'email' ? 'Email' : mxExt(f.name).toUpperCase() + ' file', f.note].filter(Boolean).join(' · ')))),
         h('span', { class: 'mo-ffrom' }, f.from === 'Clavia' ? h('span', { class: 'mo-feed-ic is-clavia' }, moKindIc('Clavia')) : mxFace(f.from, 'pb-av mo-av-xs'), h('span', {}, f.from)),
@@ -974,7 +999,7 @@ function moAddHearing(m) {
   m.facts.push(['Their lawyers', 'Harlow & Co'], ['Court', 'Croydon County Court']);
   m.people.push(['Harlow & Co', 'Their lawyers (for Orbis)']);
   moLog(m, 'Key date', `Court hearing added: ${moSay(day)}`);
-  save(); MX.matters.tab = 'tasks'; moRedraw();
+  save(); moSetTab('tasks'); moRedraw();
   pbToast('Added. Reminders are set, and it’s in your Outlook calendar.');
 }
 function moPrep(m) {
@@ -1063,7 +1088,7 @@ function moDecide(m) {
     foot: (close) => [moBtn('Cancel', close), moBtn('Save Decision', () => {
       if (!f.what.trim()) return pbToast('Say what was decided first');
       m.decisions.push({ what: f.what.trim(), who: f.who, when: mxNow(), why: f.why.trim(), on: based.join(' · '), vis: f.vis, st: 'in' });
-      moLog(m, 'Decision', `${f.who.split(' ')[0]} decided: ${f.what.trim()}`, f.who); save(); close(); MX.matters.tab = 'decisions'; moRedraw(); pbToast('Decision saved.');
+      moLog(m, 'Decision', `${f.who.split(' ')[0]} decided: ${f.what.trim()}`, f.who); save(); close(); moSetTab('decisions'); moRedraw(); pbToast('Decision saved.');
     }, true)] });
 }
 
@@ -1108,8 +1133,8 @@ function moTabPeople(m) {
   return [
     h('section', { class: 'rqv' }, h('h3', { class: 'rqv-h' }, 'On This Matter'),
       ...m.people.map(([n, r]) => person(n, roleOf(n, r) === r ? r : `${r} · ${roleOf(n, r)}`, dots([
-        r === 'Asked for it' && n !== USER.name ? { label: `See What ${n.split(' ')[0]} Sees`, icon: 'look', run: () => { MX.matters.open = m.id + '/asker'; go('matters'); } } : null,
-        r === 'Asked for it' && n !== USER.name ? { label: `Message ${n.split(' ')[0]}`, icon: 'ask', run: () => { MX.matters.tab = 'activity'; MX.matters.upd = { id: m.id, text: '', vis: 'shared' }; moRedraw(); } } : null,
+        r === 'Asked for it' && n !== USER.name ? { label: `See What ${n.split(' ')[0]} Sees`, icon: 'look', run: () => { if (m.request) { MX.intake.open = m.id + '/requester'; go('intake'); } else { MX.matters.open = m.id + '/asker'; go('matters'); } } } : null,
+        r === 'Asked for it' && n !== USER.name ? { label: `Message ${n.split(' ')[0]}`, icon: 'ask', run: () => { moSetTab('activity'); MX.matters.upd = { id: m.id, text: '', vis: 'shared' }; moRedraw(); } } : null,
         legal(n) && r !== 'Owner' && !closed ? { label: `Make ${n.split(' ')[0]} the Owner`, icon: 'use', run: () => { const b = moOwnerBtn(m); b._set(n); moRedraw(); } } : null,
         r !== 'Owner' && r !== 'Asked for it' && !closed ? { label: 'Remove From Matter', icon: 'trash', danger: true, run: () => { m.people = m.people.filter(p => p[0] !== n); moLog(m, 'Access', `${moMe()} took ${n.split(' ')[0]} off the matter`); save(); moRedraw(); } } : null,
         { label: 'Copy Email', icon: 'copy', run: () => { navigator.clipboard?.writeText(mxEmail(n)).catch(() => {}); pbToast('Email copied'); } },
@@ -1146,7 +1171,7 @@ function moKeepOut(m) {
       h('p', { class: 'mo-faint' }, 'Only the matter owner and the head of legal can change this. Every change is in the timeline.')]; },
     foot: (close) => [moBtn('Cancel', close), moBtn(`Keep ${f.who.split(' ')[0]} Out`, () => {
       m.keptOut.push({ who: f.who, why: f.why.trim() || 'No reason given', by: USER.name, when: mxNow() });
-      moLog(m, 'Access', `${moMe()} kept ${f.who.split(' ')[0]} out of the matter`); save(); close(); MX.matters.tab = 'people'; moRedraw();
+      moLog(m, 'Access', `${moMe()} kept ${f.who.split(' ')[0]} out of the matter`); save(); close(); moSetTab('people'); moRedraw();
       pbToast(`${f.who.split(' ')[0]} is kept out of this matter.`);
     }, true)] });
 }
@@ -1163,7 +1188,7 @@ function moShare(m) {
       const n = picks.filter(Boolean).length;
       m.shares.push({ n, picks: [...picks], by: USER.name, when: mxNow() });
       m.money = { ...m.money, firm: 'Keller & Moss', billed: 2400, okd: 1600, expected: 4000 };
-      moLog(m, 'Sharing', `${moMe()} shared ${n} items with Keller & Moss`); save(); close(); MX.matters.tab = 'people'; moRedraw();
+      moLog(m, 'Sharing', `${moMe()} shared ${n} items with Keller & Moss`); save(); close(); moSetTab('people'); moRedraw();
       pbToast('Shared with David Keller. He gets an email with a secure link.');
     }, true)] });
 }
@@ -1289,13 +1314,13 @@ function moClose(m) {
     foot: (close) => [moBtn('Cancel', close), moBtn('Close Matter', () => {
       const outcome = f.how === 'Settled' && f.amount.trim() ? `Settled for ${f.amount.trim()}` : f.how;
       m.closed = { when: mxNow(), by: USER.name, outcome, summary: f.sum ?? summary, learn: f.learn };
-      m.status = 'closed'; m.stage = 4; m.where = `Closed: ${outcome}.${m.orbis ? ' Orbis withdrew the court claim.' : ''}`;
+      m.status = 'closed'; m.stage = 4; if (m.request) m.request.status = 'done'; m.where = `Closed: ${outcome}.${m.orbis ? ' Orbis withdrew the court claim.' : ''}`;
       moLog(m, 'Matter', `${moMe()} closed the matter: ${outcome}`); save(); close(); MX.matters.ask = null; moRedraw();
       pbToast('Matter closed. The summary is saved for similar matters.');
     }, true, { disabled: moOpenTasks(m).length > 0 })] });
 }
 function moReopen(m) {
-  m.status = 'open'; m.stage = 3; moLog(m, 'Matter', `${moMe()} reopened the matter`); m.closed = null; save(); moRedraw();
+  m.status = 'open'; m.stage = 3; if (m.request) m.request.status = 'progress'; moLog(m, 'Matter', `${moMe()} reopened the matter`); m.closed = null; save(); moRedraw();
   pbToast('Reopened. The closing summary is kept in the timeline.');
 }
 
@@ -1328,7 +1353,7 @@ function moAskPanel(m, a) {
         c.task ? h('span', { class: 'mo-green' }, '✓ Task added') : h('button', { class: 'mx-link', type: 'button', onclick: () => {
           c.task = true; m.tasks.push(moT('Follow up: ' + c.q.replace(/\?$/, ''), USER.name, 3)); save(); moRedraw(); pbToast(`Task added for you, due ${moSayN(3)}`); } }, 'Make It a Task'),
         c.draft && first !== moMe() ? h('button', { class: 'mx-link', type: 'button', onclick: () => {
-          MX.matters.ask = null; MX.matters.tab = 'updates'; MX.matters.upd = { id: m.id, text: c.text, vis: 'shared' }; moRedraw(); } }, 'Post as Update') : null,
+          MX.matters.ask = null; moSetTab('updates'); MX.matters.upd = { id: m.id, text: c.text, vis: 'shared' }; moRedraw(); } }, 'Post as Update') : null,
         h('button', { class: 'mx-link', type: 'button', onclick: () => { navigator.clipboard?.writeText(c.text).catch(() => {}); pbToast('Copied'); } }, 'Copy')))];
   const body = h('div', { class: 'mo-ask-body' },
     h('div', { class: 'mo-scope' }, `Answers use only this matter: its key facts, ${mxPlural(m.files.length, 'file and email', 'files and emails')}, ${mxPlural(m.decisions.length, 'decision')} and its tasks. Nothing is saved unless you choose.`),
@@ -1441,4 +1466,76 @@ function moSettingsPage() {
       h('div', { class: 'mo-set-go' }, moBtn('Save', () => { d.byClient = by; save(); paint(); pbToast(by ? 'Saved. Matters now show a client and a matter number.' : 'Saved. Matters use our own numbers.'); }, true))));
   paint();
   return page;
+}
+
+/* ==================================================================
+   One piece of work, one item (step 2 of joining Intake and Matters).
+   A request can carry a matter's parts in r.mt: its tasks, key dates,
+   decisions, money, people and the rest. moAsMatter(r) hands the matter
+   screens a matter made from the request itself: the number, name, owner,
+   who asked and where it came in are the request's own, so they are never
+   kept twice; the matter's parts are read and written straight to r.mt.
+   Nothing calls these yet; Intake looks and works exactly as before.
+================================================================== */
+const MO_PARTS = ['type', 'status', 'waitOn', 'private', 'client', 'where', 'facts', 'tasks', 'dates', 'files', 'decisions', 'people',
+  'money', 'links', 'chats', 'updates', 'tl', 'ask', 'draft', 'keptOut', 'shares', 'closed', 'orbis', 'found', 'recordsIn'];
+function moAsMatter(r) {
+  if (!r || !r.mt) return null;
+  const p = r.mt, m = {};
+  const own = (key, get, set) => Object.defineProperty(m, key, { enumerable: true, get, set: set || (() => {}) });
+  own('id', () => r.id);
+  own('title', () => r.title, (v) => { r.title = v; });
+  own('owner', () => r.attorney || null, (v) => { r.attorney = v; });
+  own('asked', () => [r.submitter, r.team || '']);
+  own('source', () => r.source || 'manual');
+  own('opened', () => p.opened || r.created);
+  own('from', () => null);
+  own('stage', () => r.stage ?? 1, (v) => { r.stage = v; });
+  own('request', () => r);
+  for (const k of MO_PARTS) own(k, () => p[k], (v) => { p[k] = v; });
+  return m;
+}
+/* give a request a matter's parts, empty or from a matter that already exists; nothing on the request itself changes */
+function moAttachParts(r, from) {
+  if (r.mt) return r.mt;
+  const base = from || moBlankMatter(r.id, r.title, moTypeOf(r), { asked: [r.submitter, r.team || ''] });
+  r.mt = {};
+  for (const k of MO_PARTS) if (base[k] !== undefined) r.mt[k] = structuredClone(base[k]);
+  r.mt.opened = mxNow();
+  return r.mt;
+}
+/* every request that is a matter, as a matter */
+const moRequestMatters = () => mxIntake().filter(r => r.mt).map(moAsMatter);
+
+/* ==================================================================
+   Step 3: a request that is a matter, on the Intake request page.
+   Only requests with r.mt reach any of this; every other request is
+   drawn by Intake exactly as before.
+================================================================== */
+/* the two tabs a matter adds */
+function moReqTab(r, which) {
+  const m = moAsMatter(r);
+  return which === 'tasks' ? [moTabTasks(m)[0]] : moTabDecisions(m);
+}
+/* what a matter adds under a tab the request already has */
+function moReqExtra(r, tab) {
+  const m = moAsMatter(r);
+  if (!m) return [];
+  if (tab === 'summary') {
+    const tasks = moOpenTasks(m).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1).slice(0, 3), dates = moUpcoming(m).slice(0, 3);
+    return [h('section', { class: 'rqv' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, 'Next Tasks'), moAllBtn('All tasks', moTabTo('tasks'))),
+        tasks.length ? h('div', { class: 'mo-tlist' }, ...tasks.map(t => moTaskRow(m, t))) : h('p', { class: 'rqp-empty' }, 'No open tasks.')),
+      dates.length ? h('section', { class: 'rqv' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, 'Next Dates'), moAllBtn('All dates', moTabTo('details'))), h('div', { class: 'mo-dates' }, ...dates.map(x => moDateRow(x)))) : null];
+  }
+  if (tab === 'details') return [moTabTasks(m)[1], ...moTabDetails(m).slice(1)];
+  if (tab === 'team') return moTabPeople(m).slice(1);
+  if (tab === 'docs') return [h('section', { class: 'rqv mo-req-files' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, 'Emails and Files on This Matter')), ...moTabFiles(m))];
+  return [];
+}
+/* Clavia's suggestion on a request that looks big */
+function moSuggestLine(r) {
+  if (r.mt || mxClosed(r) || !/\b(owe|owes|owed|claim|claims|court|tribunal|dispute|sue|sued|lawsuit|unfair)\b/i.test(r.title + ' ' + (r.detail || ''))) return null;
+  return h('div', { class: 'mo-says mo-req-sg' }, h('span', { class: 'mo-says-ic', html: SPARK_ONE }),
+    h('div', {}, h('b', {}, 'This looks like it will take a while.'), ' Turning it into a matter adds tasks, key dates, decisions and money, and keeps the same number.'),
+    h('button', { class: 'btn', type: 'button', onclick: () => moFromRequest(r) }, 'Turn into a Matter'));
 }

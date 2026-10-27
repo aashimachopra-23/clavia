@@ -230,3 +230,25 @@ function moIntakeSeed(d) {
       { who: 'Clavia', ev: 'clavia', what: 'opened this request from the email', when: made }] });
   d.orbisRq = id;
 }
+/* step 4: the demo matters live in Intake as requests that are matters, each with its own request number */
+const MO_REQ_OF = { 'MT-201': ['RQ-1029', 'Contract review', 'Sales'], 'MT-195': ['RQ-1027', 'Advice', 'Legal'], 'MT-188': ['RQ-0990', 'Advice', 'Partnerships'],
+  'MT-190': ['RQ-1031', 'Contract review', 'Procurement'], 'MT-176': ['RQ-1033', 'Privacy', 'Sales'] };
+function moMattersSeed(d) {
+  if (d.mattersInIntakeV === 1) return;
+  for (const m of moSeed()) {
+    const [id, type, team] = MO_REQ_OF[m.id];
+    if (d.intake.some(r => r.id === id)) continue;
+    const next = [...m.tasks.filter(t => t.st === 'open' && t.due).map(t => t.due), ...m.dates.map(x => x.d)].sort()[0] || null;
+    const r = { id, title: m.title, deal: null, counterparty: (m.facts.find(f => f[0] === 'Other side') || [])[1] || null, type, team,
+      attorney: m.owner, status: m.status === 'waiting' ? 'waiting' : 'progress', due: next, urgent: false, updated: m.tl[m.tl.length - 1].when, created: m.opened,
+      submitter: m.asked[0], source: m.source === 'manual' ? null : m.source, detail: m.where, files: [], triaged: true, stage: m.stage, mt: {} };
+    for (const k of MO_PARTS) if (m[k] !== undefined && k !== 'stage') r.mt[k] = structuredClone(m[k]);
+    r.mt.opened = m.opened;
+    /* what happened on the matter, in the request's own Activity */
+    r.activity = [{ who: m.asked[0], ev: 'submit', what: 'asked legal for this', when: m.opened },
+      ...m.tl.map(e => { const first = e.who.split(' ')[0];
+        return e.text.startsWith(first + ' ') ? { who: e.who, what: e.text.slice(first.length + 1), when: e.when } : { who: 'Clavia', ev: 'clavia', what: 'noted: ' + e.text, when: e.when }; })];
+    d.intake.push(r);
+  }
+  d.mattersInIntakeV = 1;
+}

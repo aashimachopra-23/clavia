@@ -354,6 +354,8 @@ function mxIntake() {
   if (typeof mxDemoSeed === 'function') mxDemoSeed(d);
   /* Tom's Orbis request, the one the Matters demo opens as a matter (matters-data.js) */
   if (typeof moIntakeSeed === 'function') { const had = d.orbisRq; moIntakeSeed(d); if (!had) save(); }
+  /* the demo matters, as requests that are matters (matters-data.js) */
+  if (typeof moMattersSeed === 'function' && d.mattersInIntakeV !== 1) { moMattersSeed(d); save(); }
   /* the requests Roger keeps an eye on without having them */
   if (d.followV !== 1) { for (const r of d.intake) if (['RQ-1047', 'RQ-1043'].includes(r.id)) r.followed = true; d.followV = 1; save(); }
   for (const r of d.intake) {
@@ -833,7 +835,7 @@ const MX_PIPE = {
 const MX_STAGE_SEED = { 'RQ-1047': 2, 'RQ-1046': 1, 'RQ-1044': 1, 'RQ-1043': 2, 'RQ-1042': 3, 'RQ-1040': 1, 'RQ-1038': 2 };
 const mxPipe = (r) => r.type === 'Advice' ? 'advice' : r.type === 'Termination' ? 'notice' : r.type === 'Signature' ? 'sign'
   : (MX_CONTRACT_OF[r.counterparty] || r.type === 'Contract review' || /their paper|their own/i.test(r.title + ' ' + (r.detail || ''))) ? 'review' : 'draft';
-const mxStages = (r) => MX_PIPE[mxPipe(r)];
+const mxStages = (r) => r.mt && typeof MO_STAGES !== 'undefined' ? MO_STAGES : MX_PIPE[mxPipe(r)];   // a matter goes through its own five stages
 function mxStage(r) {
   const s = mxStages(r);
   if (r.stage == null) r.stage = MX_STAGE_SEED[r.id] ?? (r.status === 'done' ? s.length - 1 : r.status === 'new' ? 0 : 1);
@@ -1695,10 +1697,10 @@ function intakePage(r, opts = {}) {
   const hasTerms = false;   // Key Terms is built but not shown for now
   const hasSign = SHOW_APPROVALS && !!mxSign(r);
   const hasIssues = SHOW_ISSUES && !!mxIssues(r);
-  let tab = MX.intake.tab && ['summary', 'details', 'terms', 'sign', 'team', 'activity', 'docs', 'issues', 'comments'].includes(MX.intake.tab) ? MX.intake.tab : 'summary';
+  let tab = MX.intake.tab && ['summary', 'details', 'terms', 'sign', 'team', 'activity', 'docs', 'issues', 'comments', 'mtasks', 'mdecisions'].includes(MX.intake.tab) ? MX.intake.tab : 'summary';
   /* the document whose round is open in the Documents tab, if any */
   let reviewing = MX.intake.review || null; MX.intake.review = null;
-  if ((tab === 'terms' && !hasTerms) || (tab === 'sign' && !(hasSign && INTAKE_FX.approvals)) || (tab === 'issues' && !hasIssues)) tab = 'summary';
+  if ((tab === 'terms' && !hasTerms) || (tab === 'sign' && !(hasSign && INTAKE_FX.approvals)) || (tab === 'issues' && !hasIssues) || ((tab === 'mtasks' || tab === 'mdecisions') && !r.mt)) tab = 'summary';
   const ICON = (p, w = 16) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
   /* ── the left: a page about the request ── */
@@ -1733,7 +1735,7 @@ function intakePage(r, opts = {}) {
   const paintWait = () => { waitEl.hidden = !(INTAKE_FX.channel && mxWhoseMove(r) === 'Requester'); };
   paintWait();
   const meta = h('div', { class: 'br-meta rqp-meta' },
-    h('span', { class: 'rqp-id' }, r.id), h('span', { class: 'mt-sep' }, '·'),
+    h('span', { class: 'rqp-id' }, r.id), r.mt ? h('span', { class: 'mo-chip mo-mt-chip' }, 'Matter') : null, h('span', { class: 'mt-sep' }, '·'),
     h('span', { class: 'rqp-from' }, `From ${r.submitter}`, ...(r.source ? [' via ', h('img', { class: 'rqp-via', src: brandSrc(r.source), alt: '' }), mxChannel(r).name] : [])), h('span', { class: 'mt-sep' }, '·'),
     h('span', { class: 'rqp-due' }, 'Due ', mxDue(r.due, r.status === 'done')),
     waitEl);
@@ -1742,7 +1744,8 @@ function intakePage(r, opts = {}) {
   const controls = h('div', { class: 'rqp-ctl' }, atty, sgOk);
 
   /* the tabs: one rule that travels under the one you are on */
-  const TABS = [['summary', 'Overview'], ['docs', 'Documents'], mxWComments(r).length && ['comments', 'Comments'], hasIssues && ['issues', 'Issues'], INTAKE_FX.approvals && hasSign && ['sign', mxApprovalRules(r).length ? 'Approvals' : 'Signatures'], ['details', 'Details'], hasTerms && ['terms', 'Key Terms'], ['team', 'Deal Team'], ['activity', 'Activity']].filter(Boolean);
+  /* a request that is a matter also has Tasks and Decisions (matters.js) */
+  const TABS = [['summary', 'Overview'], r.mt && ['mtasks', 'Tasks'], ['docs', 'Documents'], mxWComments(r).length && ['comments', 'Comments'], r.mt && ['mdecisions', 'Decisions'], hasIssues && ['issues', 'Issues'], INTAKE_FX.approvals && hasSign && ['sign', mxApprovalRules(r).length ? 'Approvals' : 'Signatures'], ['details', 'Details'], hasTerms && ['terms', 'Key Terms'], ['team', 'Deal Team'], ['activity', 'Activity']].filter(Boolean);
   const ink = h('span', { class: 'br-ink', 'aria-hidden': 'true' });
   const tabBtns = TABS.map(([k, label]) => h('button', { class: 'br-tab', type: 'button', role: 'tab', 'data-k': k, onclick: () => setTab(k) },
     label));
@@ -2729,7 +2732,8 @@ function intakePage(r, opts = {}) {
   const activity = () => { paintLog(); paintCtx(); return [composer, log]; };
 
   const paintBody = () => {
-    body.replaceChildren(...[].concat(tab === 'summary' ? summary() : tab === 'details' ? details() : tab === 'terms' ? terms() : tab === 'sign' ? approvals() : tab === 'team' ? team() : tab === 'docs' ? documents() : tab === 'comments' ? commentsTab() : tab === 'issues' ? issues() : activity()).filter(v => v != null && v !== false));
+    body.replaceChildren(...[].concat(tab === 'mtasks' ? moReqTab(r, 'tasks') : tab === 'mdecisions' ? moReqTab(r, 'decisions') : tab === 'summary' ? summary() : tab === 'details' ? details() : tab === 'terms' ? terms() : tab === 'sign' ? approvals() : tab === 'team' ? team() : tab === 'docs' ? documents() : tab === 'comments' ? commentsTab() : tab === 'issues' ? issues() : activity(),
+      r.mt && typeof moReqExtra === 'function' ? moReqExtra(r, tab) : []).filter(v => v != null && v !== false));
     body.dataset.tab = tab;
     dock.hidden = tab === 'activity' || tab === 'comments';
   };
@@ -2772,8 +2776,7 @@ function intakePage(r, opts = {}) {
   const more = h('button', { class: 'br-dots', type: 'button', 'aria-label': 'More actions', 'data-tip': 'More Actions', html: PB_SVG.dots,
     onclick: (e) => { e.stopPropagation(); mxGlyphs(); menu(more, [
       ...(INTAKE_FX.channel && r.submitter !== USER.name ? [{ label: `Message ${first}`, icon: 'ask', run: () => messageRequester() }] : []),
-      typeof moFromRequest === 'function' ? (r.matter && moGet(r.matter) ? { label: `Go to Matter ${r.matter}`, icon: 'open', run: () => moGo(r.matter) }
-        : !mxClosed(r) ? { label: 'Open as a Matter', icon: 'open', run: () => moFromRequest(r) } : null) : null,
+      typeof moFromRequest === 'function' && !r.mt && !mxClosed(r) ? { label: 'Turn into a Matter', icon: 'open', run: () => moFromRequest(r) } : null,
       !mxClosed(r) ? { label: 'Mark as Completed', icon: 'use', run: () => { r.status = 'done'; r.updated = mxNow(); save(); add({ ev: 'status', what: 'moved this to Completed' }); mxClose('intake'); go('intake'); pbToast(`${r.id} is completed`); } } : null,
       ...(INTAKE_FX.portal ? [{ label: 'Open Requester View', icon: 'open', run: () => { MX.intake.open = r.id + '/requester'; go('intake'); } }] : []),
       { label: 'Share', icon: 'share', run: () => { navigator.clipboard?.writeText(location.href).catch(() => {}); pbToast('Link copied. Anyone in legal can open it.'); } },
@@ -2791,7 +2794,7 @@ function intakePage(r, opts = {}) {
         embed ? h('span', {}) : h('button', { class: 'br-back', type: 'button', onclick: () => { mxClose('intake'); go('intake'); } },
           h('span', { class: 'br-back-a', html: ICON('<path d="M19 12H5M11 6l-6 6 6 6"/>', 15) }), INTAKE_NAME),
         h('div', { class: 'br-top-r' }, stageBtn, more)),
-      title, meta, controls, tabs, body),
+      title, meta, controls, typeof moSuggestLine === 'function' ? moSuggestLine(r) : null, tabs, body),
     dock);
   /* once the tabs are holding at the top, a soft edge keeps what slides under from merging into them */
   const leftIn = left.querySelector('.rqp-left-in');
@@ -4047,7 +4050,13 @@ function intakeView() {
     { k: 'unassigned', label: 'Unassigned', in: (r) => isOpen(r) && !r.attorney && !r.resolvedBy },
     { k: 'mine', label: 'Assigned to Me', in: (r) => isOpen(r) && r.attorney === USER.name },
     ...(INTAKE_FX.following ? [{ k: 'following', label: 'Following', in: (r) => isOpen(r) && !!r.followed && r.attorney !== USER.name }] : []),
-    { k: 'approve', label: 'Needs My Approval', in: (r) => isOpen(r) && mxAwaitsMe(r) }];
+    { k: 'approve', label: 'Needs My Approval', in: (r) => isOpen(r) && mxAwaitsMe(r) },
+    /* the matters: requests that turned into longer work (matters.js) */
+    ...(typeof moOverview === 'function' ? [
+      { k: 'matters', label: 'Matters', in: (r) => isOpen(r) && !!r.mt },
+      { k: 'needs', label: 'Needs You', body: () => moOverview(moData()), n: () => moNeeds(moData()).length },
+      { k: 'mtasks', label: 'Tasks', body: () => moTasksView(moData()), n: () => moOpenMatters().flatMap(m => moOpenTasks(m).filter(t => t.who === USER.name)).length },
+      { k: 'dates', label: 'Key Dates', body: () => moDatesView(moData()), n: () => moOpenMatters().flatMap(m => moUpcoming(m)).length }] : [])];
   if (!st.viewV) { if (st.tab === 'all') st.tab = 'open'; st.viewV = 1; }
   const everything = () => list;
   const TABOF = (r) => !r.attorney && !r.resolvedBy ? 'unassigned' : r.attorney === USER.name ? 'mine' : 'others';
@@ -4060,7 +4069,9 @@ function intakeView() {
         icon: () => quillEl('static', { cls: 'pb-way-quill' }) },
       { key: 'form', name: 'Fill in a form', desc: 'Answer a few short questions about the work and the deal.',
         icon: () => { const w = h('span', { html: MX_FORM_IC }); return w.firstChild; } },
-    ], (k) => k === 'ai' ? rqStartChat() : requestForm(), { keyboard }), true));
+      ...(typeof moBlank === 'function' ? [{ key: 'matter', name: 'Start a matter', desc: 'For bigger work: tasks, key dates, decisions and money from the start.',
+        icon: () => h('span', { html: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>' }) }] : []),
+    ], (k) => k === 'ai' ? rqStartChat() : k === 'matter' ? moBlank() : requestForm(), { keyboard }), true));
   const FILTERS = [
       { key: 'type', label: 'Type', of: (r) => r.type, order: (v) => MX_RQ_TYPES.indexOf(v) },
       { key: 'attorney', label: INTAKE_FX.columns === 'v2' ? 'Assigned to' : 'Attorney', of: (r) => r.attorney || '', none: 'Unassigned',
@@ -4099,7 +4110,7 @@ function intakeView() {
     val: (r, k) => k === 'created' ? r.created : k === 'delegate' ? (mxDelegate(r) || '~') : k === 'source' ? (r.source ? mxChannel(r).name : 'Manual') : k === 'comments' ? mxWActive(r).length : k === 'stage' ? (order[r.status] ?? 1) : k === 'due' ? r.due : k === 'id' ? r.id : (r[k] || '~').toLowerCase(),
     cells: (r) => INTAKE_FX.columns === 'v2' ? [
       h('span', { class: 'mx-req-id' }, r.id),
-      h('span', { class: 'pb-row-name' }, r.title),
+      r.mt ? h('span', { class: 'mo-row-mt' }, h('span', { class: 'pb-row-name' }, r.title), h('span', { class: 'mo-chip mo-mt-chip' }, 'Matter')) : h('span', { class: 'pb-row-name' }, r.title),
       mxReqStatusBtn(r, () => setTimeout(t.paint, 420)),
       mxAttorneyBtn(r, () => setTimeout(t.paint, 420)),
       h('span', { class: 'mx-dlg' }, mxFace(r.submitter, 'pb-av mx-sb-av'), r.submitter),
