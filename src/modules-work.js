@@ -352,6 +352,8 @@ function mxIntake() {
   if (INTAKE_FX.split && d.splitV !== 1) { mxSplitSeed(d.intake); d.splitV = 1; save(); }
   /* 15 Oct: the two Gulf Systems requests told in full, and Brightwell at full length (intake-demo.js) */
   if (typeof mxDemoSeed === 'function') mxDemoSeed(d);
+  /* Tom's Orbis request, the one the Matters demo opens as a matter (matters-data.js) */
+  if (typeof moIntakeSeed === 'function') { const had = d.orbisRq; moIntakeSeed(d); if (!had) save(); }
   /* the requests Roger keeps an eye on without having them */
   if (d.followV !== 1) { for (const r of d.intake) if (['RQ-1047', 'RQ-1043'].includes(r.id)) r.followed = true; d.followV = 1; save(); }
   for (const r of d.intake) {
@@ -2770,6 +2772,8 @@ function intakePage(r, opts = {}) {
   const more = h('button', { class: 'br-dots', type: 'button', 'aria-label': 'More actions', 'data-tip': 'More Actions', html: PB_SVG.dots,
     onclick: (e) => { e.stopPropagation(); mxGlyphs(); menu(more, [
       ...(INTAKE_FX.channel && r.submitter !== USER.name ? [{ label: `Message ${first}`, icon: 'ask', run: () => messageRequester() }] : []),
+      typeof moFromRequest === 'function' ? (r.matter && moGet(r.matter) ? { label: `Go to Matter ${r.matter}`, icon: 'open', run: () => moGo(r.matter) }
+        : !mxClosed(r) ? { label: 'Open as a Matter', icon: 'open', run: () => moFromRequest(r) } : null) : null,
       !mxClosed(r) ? { label: 'Mark as Completed', icon: 'use', run: () => { r.status = 'done'; r.updated = mxNow(); save(); add({ ev: 'status', what: 'moved this to Completed' }); mxClose('intake'); go('intake'); pbToast(`${r.id} is completed`); } } : null,
       ...(INTAKE_FX.portal ? [{ label: 'Open Requester View', icon: 'open', run: () => { MX.intake.open = r.id + '/requester'; go('intake'); } }] : []),
       { label: 'Share', icon: 'share', run: () => { navigator.clipboard?.writeText(location.href).catch(() => {}); pbToast('Link copied. Anyone in legal can open it.'); } },

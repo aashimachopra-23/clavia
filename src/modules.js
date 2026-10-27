@@ -45,7 +45,7 @@ const mxPlural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
    other three. go() asks mxHash for the address of what is showing. */
 function mxHash(view) { const o = MX[view]?.open; return o ? `${view}/${encodeURIComponent(o).replace(/%2F/g, '/')}` : null; }
 function mxRoute(hash) {
-  const m = /^(vault|templates|requests|projects|intake|settings|horizon|skills|agents)(?:\/(.+))?$/.exec(hash);
+  const m = /^(vault|templates|requests|projects|intake|settings|horizon|skills|agents|matters)(?:\/(.+))?$/.exec(hash);
   if (!m) return false;
   const v = m[1], want = m[2] ? decodeURIComponent(m[2]) : null;
   if (state.view === v && MX[v].open === want) return !!want;
