@@ -18,7 +18,7 @@ const ST_NAV = [
   { group: 'Intake', items: [['channels', 'Channels'], ['details', 'Request details'], ['rules', 'Routing rules']] },
   { group: 'Horizon', items: [['profile', 'Company profile'], ['delivery', 'Delivery']] },
   { group: 'Connections', items: [['connectors', 'Connectors']] },
-  { group: 'Matters', items: [['matters', 'Numbering']] },
+  { group: 'Matters', items: [['matters', 'Numbering'], ['matter-kinds', 'Kinds of Matter'], ['matter-rules', 'Who Gets Which Matter']] },
 ];
 
 function stConns() {
@@ -70,6 +70,8 @@ function settingsView() {
     : top === 'profile' ? hzProfilePage()
     : top === 'delivery' ? hzDeliveryPage()
     : top === 'matters' ? moSettingsPage()
+    : top === 'matter-kinds' ? moKindsPage()
+    : top === 'matter-rules' ? moRulesSetPage()
     : stGeneralPage();
   return h('div', { class: 'sx' }, side, h('main', { class: 'sx-main' }, body));
 }

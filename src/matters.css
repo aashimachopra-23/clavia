@@ -442,3 +442,58 @@ button.mo-frow:hover .mo-fn { text-decoration: underline; text-underline-offset:
   .mo-need { grid-template-columns: minmax(0, 1fr) auto; }
   .mo-need-st { display: none; }
 }
+
+/* ══ Matters in Intake's shape (28 Oct): the table, the request header, Activity, Deal Team, the asker's page ══ */
+.mo-row-name { display: inline-flex; align-items: center; gap: 6px; }
+.mo-st-stage { margin-left: 4px; color: var(--text-faint); font-weight: 400; }
+.mo-sg-n { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.25px #DDD8D0; font-size: 9.5px; font-weight: 600; color: var(--text-faint); }
+.mo-sg-n.is-past { background: #E8F1EA; box-shadow: none; color: #2F7A4C; }
+.mo-tool-spark { display: grid; color: #C9A24B; }
+.mo-tool-spark svg { width: 15px; height: 15px; }
+
+/* the comment box at the top of Activity */
+.mo-cmp { margin: 0 0 18px; }
+.mo-cmp.is-note { background: #FFFCF3; box-shadow: 0 0 0 1px #F1E6C6; }
+.mo-cmp .rqx-c-row { display: flex; align-items: flex-start; gap: 6px; }
+.mo-cmp .mo-cmp-in { flex: 1; min-height: 40px; padding-top: 6px !important; }
+.mo-cmp-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.mo-cmp-mode .mo-pill { height: 26px; padding: 0 10px; font-size: 12.5px; }
+.mo-cmp-draft { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; }
+.mo-cmp-draft .mo-btn-spark { color: #C9A24B; }
+.mo-cmp-say { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.mo-cmp-say .rqx-via { width: 13px; height: 13px; vertical-align: -2px; margin: 0 3px; }
+.mo-stream .rqx-h { flex-wrap: wrap; }
+.mo-ev-t { color: var(--text); }
+.mo-ev-k { height: 18px; font-size: 11px; font-weight: 400; }
+.mo-chat-t { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 0; border-radius: 9px; background: #F6F8F4; font: inherit; font-size: 13.5px; text-align: left; color: var(--text); cursor: pointer; }
+.mo-chat-t:hover { background: #EEF3EC; }
+.mo-chat-t .mo-btn-spark { color: #C9A24B; }
+
+/* People, as Deal Team */
+.mo-p-dots { opacity: 0; transition: opacity var(--fast) var(--ease); }
+.rqp-person:hover .mo-p-dots, .mo-p-dots:focus-visible { opacity: 1; }
+.mo-addrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0; border: 0; background: none; font: inherit; font-size: 14px; color: var(--text-soft); cursor: pointer; text-align: left; }
+.mo-addrow:hover { color: var(--text); }
+.mo-addrow-ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1px dashed var(--line-strong); color: var(--text-faint); }
+.mo-help-s { font-size: 12px; }
+
+/* Settings › Matters */
+.mo-kind { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.mo-kind .mo-late-t b { font-weight: 500; font-size: 14px; }
+.mo-kind-n { font-size: 12.5px; white-space: nowrap; }
+.mo-kind-eg { max-width: 520px; margin-top: 26px; padding: 16px 18px; border-radius: 14px; box-shadow: 0 0 0 1px var(--line); }
+.mo-kind-eg > .mo-faint { margin-bottom: 10px; font-size: 12px; }
+.mo-kind-reply { margin-left: 30px; padding-left: 14px; border-left: 2px solid var(--line); }
+.mo-rule { grid-template-columns: minmax(0, 1fr) 220px 60px !important; cursor: default; }
+.mo-rule.is-off b, .mo-rule.is-off .pb-owner-n { color: var(--text-faint); }
+.mo-rule b { font-weight: 500; }
+.mo-rule .mo-switch { cursor: pointer; justify-self: start; }
+
+/* the asker's page */
+.mo-asker-where { margin: 0; font-size: 15px; line-height: 1.7; color: var(--text); }
+
+.mo-cmp.rqx-compose { display: block; }
+.mo .mx-intake .pb-td > .mo-row-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; line-height: 1.35; }
+.sx-page .mo-help { margin-top: 14px; }
+.mo-src-ic { display: inline-grid; place-items: center; width: 22px; height: 22px; }
+.mo-src-ic img { width: 16px; height: 16px; display: block; }

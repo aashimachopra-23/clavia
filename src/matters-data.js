@@ -9,7 +9,7 @@
    is the one told in full.
 ================================================================== */
 
-const MO_SEED_V = 1;
+const MO_SEED_V = 2;
 
 /* a day counted from today, kept as a date */
 const moDay = (n) => {
@@ -37,6 +37,23 @@ const MO_FIRST = {
 };
 const MO_TYPES = Object.keys(MO_FIRST);
 
+/* who gets which kind of matter, unless someone picks another owner (Settings › Matters) */
+const MO_RULES_SEED = [
+  { kind: 'Dispute', who: 'Grace Coleman', on: true },
+  { kind: 'Contract', who: 'Matt Rivera', on: true },
+  { kind: 'Advice', who: 'Aisha Rahman', on: true },
+  { kind: 'Employment', who: 'James Whitfield', on: true },
+];
+/* what Clavia needs to know for each kind of matter; if the request doesn't say, it asks */
+const MO_NEEDS = {
+  Dispute: ['Other side', 'What they claim', 'Most we could lose', 'Court or hearing dates'],
+  Contract: ['Other side', 'Deal value', 'Who signs for us', 'Target date'],
+  Advice: ['The question', 'Who asked', 'When it’s needed'],
+  Employment: ['The person', 'What they claim', 'Tribunal', 'Hearing date'],
+};
+/* people on the legal team who used to work somewhere, for the conflict check when a matter opens */
+const MO_HISTORY = { 'Matt Rivera': ['Orbis Supplies Ltd', 'until 2025'], 'Elena Petrova': ['Harlow & Co', 'until 2022'] };
+
 let moTaskN = 0;
 const moT = (t, who, due, st = 'open', proof = null) => ({ id: 'tk' + (++moTaskN), t, who, due: due == null ? null : moDay(due), st, proof, proofFile: null });
 
@@ -45,15 +62,15 @@ function moSeed() {
   const R = 'Roger Bennett';
   return [
     {
-      id: 'MT-201', title: 'Vantage renewal: their changes', type: 'Contract', owner: R, status: 'waiting', waitOn: 'Vantage', stage: 2,
+      id: 'MT-201', source: 'salesforce', title: 'Vantage renewal: their changes', type: 'Contract', owner: R, status: 'waiting', waitOn: 'Vantage', stage: 2,
       opened: moDay(-15), client: 0, asked: ['Sofia Marin', 'Sales'], from: 'RQ-1029',
       where: `Vantage sent back 14 changes to our renewal contract. 11 are fine. 3 need a decision: the cap on what they owe us, the payment terms and who owns new features. Roger replies by ${moSayN(0)}.`,
       facts: [['Other side', 'Vantage GmbH'], ['Deal value', '£420,000 over 3 years'], ['Our paper or theirs', 'Ours (enterprise template v4)'], ['Signs for us', 'Grace Coleman']],
       tasks: [moT('Reply to Vantage’s changes', R, 0), moT('Send Sofia a short summary of their changes', R, -3), moT('Check the cap on what they owe us with finance', 'Tom Becker', 1), moT('Review their 14 changes', R, -4, 'done')],
       dates: [{ d: moDay(0), what: 'Reply to Vantage’s changes', kind: 'Deadline' }, { d: moDay(11), what: 'Sofia’s target to sign', kind: 'Target' }],
       files: [{ kind: 'email', from: 'Vantage legal', name: 'Their changes (marked-up contract)', note: '', when: moDay(-5) },
-        { kind: 'file', from: R, name: 'Our enterprise contract v4.docx', note: '', when: moDay(-15) },
-        { kind: 'file', from: 'Clavia', name: 'Their changes against our playbook.pdf', note: 'Made by Clavia', when: moDay(-4) }],
+        { kind: 'file', from: R, name: 'Our enterprise contract.docx', note: '', v: 4, when: moDay(-15) },
+        { kind: 'file', from: 'Clavia', name: 'Their changes against our playbook.pdf', note: 'Made by Clavia', v: 2, when: moDay(-4) }],
       decisions: [{ what: 'Accept 30-day payment terms (not 60)', who: 'Grace Coleman', when: moDay(-3), why: 'In line with our payment policy; finance agreed.', on: 'Payment policy · Tom’s email', vis: 'shared', st: 'in' }],
       people: [[R, 'Owner'], ['Sofia Marin', 'Asked for it'], ['Grace Coleman', 'Signs for us']],
       money: null,
@@ -71,7 +88,7 @@ function moSeed() {
       keptOut: [], shares: [],
     },
     {
-      id: 'MT-195', title: 'Former employee claim: J. Rowe', type: 'Employment', owner: 'James Whitfield', status: 'hearing', stage: 3, private: true,
+      id: 'MT-195', source: 'manual', title: 'Former employee claim: J. Rowe', type: 'Employment', owner: 'James Whitfield', status: 'hearing', stage: 3, private: true,
       opened: moDay(-55), client: 0, asked: ['James Whitfield', 'Employment'], from: null,
       where: `J. Rowe says he was unfairly dismissed. The tribunal hearing is on ${moSayN(17)}. Our witness statements are drafted; James is checking them with HR this week.`,
       facts: [['Other side', 'J. Rowe (former employee)'], ['What they claim', 'Unfair dismissal'], ['Most we could lose', '£38,000, plus costs'], ['Tribunal', 'London Central Employment Tribunal']],
@@ -79,7 +96,7 @@ function moSeed() {
       dates: [{ d: moDay(17), what: 'Tribunal hearing, 10:00', kind: 'Hearing' }, { d: moDay(14), what: 'Last day to send our documents', kind: 'Deadline' }],
       files: [{ kind: 'file', from: 'HR', name: 'Dismissal letter and meeting notes.pdf', note: '', when: moDay(-47) },
         { kind: 'email', from: 'Tribunal', name: 'Notice of hearing', note: '', when: moDay(-26) },
-        { kind: 'file', from: 'James Whitfield', name: 'Draft witness statements.docx', note: '', when: moDay(-7) }],
+        { kind: 'file', from: 'James Whitfield', name: 'Draft witness statements.docx', note: '', v: 3, when: moDay(-7) }],
       decisions: [{ what: 'Don’t offer to settle before the hearing', who: R, when: moDay(-25), why: 'The notes show a fair process was followed.', on: 'Meeting notes · HR timeline', vis: 'legal', st: 'in' }],
       people: [['James Whitfield', 'Owner'], [R, 'Can see it (head of legal)']],
       money: { budget: 12000, billed: 4200, okd: 0, expected: 5000, firm: 'Pryor & Lane' },
@@ -96,7 +113,7 @@ function moSeed() {
       keptOut: [], shares: [],
     },
     {
-      id: 'MT-188', title: '“Lumen” trade mark in India', type: 'Dispute', owner: 'Elena Petrova', status: 'open', stage: 3,
+      id: 'MT-188', source: 'teams', title: '“Lumen” trade mark in India', type: 'Dispute', owner: 'Elena Petrova', status: 'open', stage: 3,
       opened: moDay(-104), client: 1, asked: ['Priya Shah', 'Partnerships'], from: 'RQ-0990',
       where: `A local company is using a name close to “Lumen” in India. We asked the Delhi High Court to stop them. The next hearing is on ${moSayN(9)}.`,
       facts: [['Other side', 'Lumin Tech Pvt Ltd'], ['What we want', 'An order to stop them using the name'], ['Court', 'Delhi High Court'], ['Our local lawyers', 'Sen & Rao, New Delhi']],
@@ -120,13 +137,13 @@ function moSeed() {
       keptOut: [], shares: [],
     },
     {
-      id: 'MT-190', title: 'Ironclad warehousing agreement', type: 'Contract', owner: 'Matt Rivera', status: 'signing', stage: 3,
+      id: 'MT-190', source: 'outlook', title: 'Ironclad warehousing agreement', type: 'Contract', owner: 'Matt Rivera', status: 'signing', stage: 3,
       opened: moDay(-10), client: 0, asked: ['Tom Becker', 'Procurement'], from: 'RQ-1038',
       where: `Everything is agreed. Grace signed for us, and Ironclad says they will sign by ${moSayN(2)}.`,
       facts: [['Other side', 'Ironclad Logistics'], ['What it is', 'Warehousing agreement, UK and Ireland'], ['How long', '2 years'], ['Signs for us', 'Grace Coleman (signed)']],
       tasks: [moT('Ironclad to sign', 'Tom Becker', 2), moT('Send for signature', 'Matt Rivera', -4, 'done')],
       dates: [{ d: moDay(2), what: 'Ironclad to sign', kind: 'Deadline' }],
-      files: [{ kind: 'file', from: 'Matt Rivera', name: 'Final warehousing agreement.docx', note: '', when: moDay(-4) },
+      files: [{ kind: 'file', from: 'Matt Rivera', name: 'Final warehousing agreement.docx', note: '', v: 5, when: moDay(-4) },
         { kind: 'file', from: 'Signing', name: 'Signed by Lumen.pdf', note: '', when: moDay(-4) }],
       decisions: [],
       people: [['Matt Rivera', 'Owner'], ['Tom Becker', 'Asked for it'], ['Grace Coleman', 'Signs for us']],
@@ -141,7 +158,7 @@ function moSeed() {
       keptOut: [], shares: [],
     },
     {
-      id: 'MT-176', title: 'Data protection review: Brindle Health', type: 'Advice', owner: 'Aisha Rahman', status: 'open', stage: 1,
+      id: 'MT-176', source: 'slack', title: 'Data protection review: Brindle Health', type: 'Advice', owner: 'Aisha Rahman', status: 'open', stage: 1,
       opened: moDay(-7), client: 2, asked: ['Daniel Okafor', 'Sales'], from: 'RQ-1033',
       where: `Brindle Health wants to share patient data with us for a pilot. Aisha is reviewing their data agreement. Our comments are due ${moSayN(3)}.`,
       facts: [['Other side', 'Brindle Health'], ['What it is', 'Data sharing agreement for a pilot'], ['Data', 'Patient data (extra care needed)'], ['Needs', 'A data protection check before signing']],
@@ -170,7 +187,7 @@ function moOrbis(rqId, keep, priv) {
     moT('Get delivery records for May and June from Tom', 'Tom Becker', 2, 'open', 'the delivery records file'),
     moT('Check what the contract says about late delivery', R, 3)];
   return {
-    id: 'MT-208', title: 'Orbis supplier dispute', type: 'Dispute', owner: R, status: 'open', stage: 1, private: !!priv,
+    id: 'MT-208', source: 'outlook', title: 'Orbis supplier dispute', type: 'Dispute', owner: R, status: 'open', stage: 1, private: !!priv,
     opened: mxNow(), client: 0, asked: ['Tom Becker', 'Finance'], from: rqId, orbis: true,
     where: 'Orbis says we owe £64,000 for unpaid invoices. We held back payment because two deliveries were late.',
     facts: [['Other side', 'Orbis Supplies Ltd'], ['What they claim', '£64,000 in unpaid invoices'], ['Most we could lose', '£64,000, plus their costs'],
