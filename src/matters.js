@@ -158,7 +158,7 @@ function moList(d) {
   const head = h('div', { class: 'mx-head-ctas' },
     h('button', { class: 'pbv-icon mx-rules-btn', type: 'button', 'aria-label': 'Matters settings', 'data-tip': 'Matters Settings', html: MI(GLYPHS.gear), onclick: () => stGo('matters') }),
     mxCta('New Matter', (b) => moNewMatter(b), true));
-  const page = mxListPage('Matters', head, t.el);
+  const page = mxListPage('Matters', head, t.el, moListDock());
   page.classList.add('mo');
   return page;
 }
@@ -232,7 +232,6 @@ function moOverview(d) {
   const latest = open.flatMap(m => m.tl.map(e => ({ ...e, m }))).sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 5);
   return h('div', { class: 'mo-ov' },
     h('p', { class: 'mo-line' }, ...lineBits),
-    moOverviewAsk(),
     h('div', { class: 'mo-kpis' },
       kpi('Open matters', String(open.length), buckets.map(([k, n]) => `${n} ${MO_ST[k].label.toLowerCase()}`).join(' · '), setView('all')),
       kpi('Your tasks this week', String(week.length), myTasks.some(x => moLate(x.t)) ? h('span', { class: 'mo-red' }, `${myTasks.filter(x => moLate(x.t)).length} overdue`) : 'None overdue', setView('tasks')),
@@ -285,16 +284,15 @@ function moAskAll(q) {
       { role: 'bot', cites: null, steps: [{ source: 'project', query: 'Read the team’s matters', count: mxPlural(open.length, 'open matter') }],
         answer: run ? run() : `I read the ${mxPlural(open.length, 'open matter')} for this. There is no model behind this demo yet, so I can only answer the suggested questions for real. Try one of them, or open a matter and ask Clavia there.` }] });
 }
-function moOverviewAsk() {
-  const ta = h('textarea', { rows: '1', 'aria-label': 'Ask about your matters', placeholder: 'Ask about your matters, deadlines or decisions' });
-  const send = h('button', { class: 'send', type: 'button', disabled: true, 'aria-label': 'Send', html: ARROW });
-  const box = h('div', { class: 'ask ask-mini mo-ov-ask' }, ta, h('div', { class: 'askbar' }, send));
-  queueMicrotask(() => { if (box.isConnected) initComposer(box, { noModel: true, noTokens: true, attach: [], onSend: (text) => moAskAll(text) }); });
-  return h('section', { class: 'mo-askcard' },
-    h('div', { class: 'mo-askcard-h' }, h('span', { class: 'rqp-ai-star', html: SPARK_ONE }), h('span', { class: 'mo-askcard-t' }, 'Ask Clavia'),
-      h('span', { class: 'mo-askcard-s' }, `Answers from all ${mxPlural(moOpenMatters().length, 'open matter')}: their tasks, dates, decisions and files`)),
-    box,
-    h('div', { class: 'mo-askcard-sugg' }, h('span', { class: 'mo-faint' }, 'Try'), ...Object.keys(MO_ASK_ALL).map(q => h('button', { class: 'mo-askchip', type: 'button', onclick: () => moAskAll(q) }, q))));
+/* Ask Clavia about all the matters: the bar an Intake request has at its foot, held at the foot of the list */
+function moListDock() {
+  const q = h('input', { class: 'mt-ask-in', type: 'text', placeholder: 'Ask about your matters, deadlines or decisions', 'aria-label': 'Ask about your matters',
+    onkeydown: (e) => { if (e.key === 'Enter' && q.value.trim()) { e.preventDefault(); moAskAll(q.value.trim()); } if (e.key === 'Escape') q.blur(); } });
+  const sugg = h('div', { class: 'mo-dock-sugg', role: 'listbox', 'aria-label': 'Suggested questions' },
+    h('div', { class: 'mo-dock-cap' }, 'Ask Clavia about all ', mxPlural(moOpenMatters().length, 'open matter')),
+    ...Object.keys(MO_ASK_ALL).map(x => h('button', { class: 'mo-dock-q', type: 'button', role: 'option', onmousedown: (e) => e.preventDefault(), onclick: () => moAskAll(x) },
+      h('span', { class: 'rqp-ask-ic', html: SPARK_ONE }), x)));
+  return h('div', { class: 'mo-dock' }, sugg, h('div', { class: 'mt-ask rqp-ask-bar mo-dock-bar' }, h('span', { class: 'rqp-ask-ic', html: SPARK_ONE }), q));
 }
 
 /* a date with its day in a small calendar box */
@@ -633,12 +631,7 @@ function moTabOverview(m) {
   const nextTask = tasks[0];
   const acts = [...m.tl].sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 5);
   return [
-    h('section', { class: 'rqp-ai' },
-      h('div', { class: 'rqp-ai-h' }, h('span', { class: 'rqp-ai-star', html: SPARK_ONE }), h('span', {}, 'Where It’s At'), h('span', { class: 'mo-ai-when' }, closed ? `Kept up to date by Clavia · ${moSay(m.closed.when)}` : 'Kept up to date by Clavia · today')),
-      h('p', { class: 'rqp-ai-t' }, m.where),
-      !closed ? h('div', { class: 'mo-ai-go' },
-        nextTask ? h('span', { class: 'mo-chip' }, `Next: ${nextTask.t}${nextTask.due ? ' · ' + moSay(nextTask.due) : ''}`) : dates[0] ? h('span', { class: 'mo-chip' }, `${dates[0].what} · ${moSay(dates[0].d)}`) : null,
-        h('button', { class: 'mx-link mo-ai-ask', type: 'button', onclick: () => moOpenAsk(m) }, 'Ask Clavia about this matter')) : null),
+    moSummary(m, nextTask, dates),
     moSec('Next Tasks', moAllBtn('All tasks', moTabTo('tasks')), tasks.length ? h('div', { class: 'mo-tlist' }, ...tasks.map(t => moTaskRow(m, t))) : h('p', { class: 'rqp-empty' }, 'No open tasks.')),
     moSec('Next Dates', moAllBtn('All dates', moTabTo('tasks')), dates.length ? h('div', { class: 'mo-dates' }, ...dates.map(x => moDateRow(x))) : h('p', { class: 'rqp-empty' }, 'No dates yet. Forward emails to the matter’s address and Clavia picks dates out.')),
     m.files.length ? moSec('Recent Documents', moAllBtn('View all', moTabTo('docs')), h('div', { class: 'mo-ftable is-flat' }, ...[...m.files].reverse().slice(0, 3).map(f => h('button', { class: 'mo-frow' + (f === moShownDoc(m) ? ' is-on' : ''), type: 'button', onclick: () => { MX.matters.doc = { id: m.id, i: m.files.indexOf(f) }; moRedraw(); } },
@@ -649,6 +642,28 @@ function moTabOverview(m) {
 }
 const moTlRow = (e) => h('div', { class: 'mo-late-it' }, e.who === 'Clavia' ? h('span', { class: 'mo-ic is-clavia', html: SPARK_ONE }) : mxFace(e.who, 'pb-av mo-av'),
   h('span', { class: 'mo-late-t' }, h('span', {}, e.text), h('span', { class: 'mo-faint' }, `${e.kind} · ${pbWhen(e.when)}`)));
+
+/* the AI Summary an Intake request opens with: one sentence, then the few things to know, each with its label */
+function moSummary(m, nextTask, dates) {
+  const fold = !!(MX.matters.aiFold && MX.matters.aiFold[m.id]);
+  const last = [...m.tl].sort((a, b) => (a.when < b.when ? 1 : -1))[0];
+  const flag = m.decisions.find(x => x.st === 'flag');
+  const pts = moIsClosed(m) ? [['Closed', `${moSay(m.closed.when)} by ${m.closed.by}: ${m.closed.outcome}.`]] : [
+    nextTask ? ['Next', `${nextTask.t}${nextTask.t.includes(nextTask.who.split(' ')[0]) ? '' : ', ' + (nextTask.who === USER.name ? 'you' : nextTask.who.split(' ')[0])}${nextTask.due ? ', ' + (moDays(nextTask.due) < 0 ? 'overdue since ' + moSay(nextTask.due) : moSay(nextTask.due)) : ''}.`] : null,
+    dates[0] ? ['Key date', `${dates[0].what}, ${moSay(dates[0].d)} (${moIn(dates[0].d).toLowerCase()}).`] : null,
+    flag ? ['Check', `“${flag.what}” may need a fresh look.`] : null,
+    last ? ['Latest', `${last.text}, ${pbWhen(last.when).replace(/^Today, /, 'today at ')}.`] : null,
+  ].filter(Boolean);
+  const box = h('section', { class: 'rqp-ai' + (fold ? ' is-folded' : '') });
+  const head = h('button', { class: 'rqp-ai-h', type: 'button', 'aria-expanded': String(!fold), onclick: () => {
+    (MX.matters.aiFold ||= {})[m.id] = !fold; box.classList.toggle('is-folded', !fold); head.setAttribute('aria-expanded', String(fold)); } },
+    h('span', { class: 'rqp-ai-star', html: SPARK_ONE }), h('span', {}, 'AI Summary'),
+    h('span', { class: 'rqp-ai-chev', html: MO_IC('<path d="m7 10 5 5 5-5"/>', 14) }));
+  box.append(head, h('div', { class: 'rqp-ai-body' }, h('div', { class: 'rqp-ai-t' },
+    h('p', { class: 'rqp-ai-intro' }, m.where),
+    pts.length ? h('ul', { class: 'rqp-ai-pts' }, ...pts.map(([k, t]) => h('li', {}, h('b', {}, k), ' ', t))) : null)));
+  return box;
+}
 
 /* ── Tasks and Dates ── */
 function moTabTasks(m) {

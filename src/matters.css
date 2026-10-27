@@ -316,6 +316,18 @@ button.mo-late-it:hover .mo-late-t > span:first-child { text-decoration: underli
 .mo-set-go { margin-top: 18px; }
 .sx-sec .mo-check { margin-top: 8px; }
 
+/* Ask Clavia about all the matters: Intake's ask bar, held at the foot of the list; the questions rise above it */
+.mo { min-height: 100%; display: flex; flex-direction: column; padding-bottom: 0; }
+.mo > .pb-card { flex: 1; }
+.mo-dock { position: sticky; bottom: 0; z-index: 3; margin: 24px -40px 0; padding: 18px 40px 18px; background: linear-gradient(to top, var(--surface) 72%, rgba(255,255,255,0)); }
+.mo-dock-bar { max-width: 720px; height: 44px; margin: 0 auto; }
+.mo-dock-sugg { display: none; max-width: 720px; margin: 0 auto 8px; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 14px 36px -16px rgba(20,20,19,.25); }
+.mo-dock:focus-within .mo-dock-sugg { display: block; animation: rise 200ms var(--ease-out) backwards; }
+.mo-dock-cap { padding: 6px 10px 4px; font-size: 11.5px; font-weight: 500; color: var(--text-faint); }
+.mo-dock-q { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 9px; background: none; font: inherit; font-size: 13.5px; text-align: left; color: var(--text); cursor: pointer; }
+.mo-dock-q:hover { background: var(--tint); }
+.mo-dock-q .rqp-ask-ic { color: #C9A24B; }
+
 /* Ask Clavia about all the matters, on the Overview */
 .mo-ov-askw { margin: 0 0 26px; }
 .mo-ov-ask { max-width: none; margin: 0; }

@@ -433,9 +433,9 @@ function mxFilterPop({ anchor, filters, items, st, only = null, onChange }) {
 }
 
 /* the page a list sits on: its name, and the one thing you came to do */
-function mxListPage(title, cta, body) {
+function mxListPage(title, cta, ...body) {
   return h('div', { class: 'pb mx' },
-    h('header', { class: 'lib-head pb-head' }, h('h1', { class: 'view-title' }, title), cta), body);
+    h('header', { class: 'lib-head pb-head' }, h('h1', { class: 'view-title' }, title), cta), ...body);
 }
 const mxCta = (label, run, popup) => h('button', { class: 'btn btn--primary pb-new', type: 'button',
   ...(popup ? { 'aria-haspopup': 'menu', 'aria-expanded': 'false' } : {}),

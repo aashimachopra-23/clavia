@@ -172,7 +172,7 @@ function moOrbis(rqId, keep, priv) {
   return {
     id: 'MT-208', title: 'Orbis supplier dispute', type: 'Dispute', owner: R, status: 'open', stage: 1, private: !!priv,
     opened: mxNow(), client: 0, asked: ['Tom Becker', 'Finance'], from: rqId, orbis: true,
-    where: 'Orbis says we owe £64,000 for unpaid invoices. We held back payment because two deliveries were late. Next: get the delivery records from Tom.',
+    where: 'Orbis says we owe £64,000 for unpaid invoices. We held back payment because two deliveries were late.',
     facts: [['Other side', 'Orbis Supplies Ltd'], ['What they claim', '£64,000 in unpaid invoices'], ['Most we could lose', '£64,000, plus their costs'],
       ['Contract', 'Orbis supplier contract, signed March 2025'], ['Late deliveries', '2 deliveries, in May and June']],
     tasks: all.filter((_, i) => keep[i] !== false),
