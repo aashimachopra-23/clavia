@@ -55,13 +55,15 @@
 .mo-hi-go { display: flex; gap: 8px; }
 .mo-hi-go .btn { padding: 7px 14px; font-size: 13px; }
 .mo-needs { display: flex; flex-direction: column; }
-.mo-need { display: grid; grid-template-columns: minmax(0, 1fr) 110px auto; align-items: center; gap: 14px; padding: 11px 0; border-top: 1px solid var(--line-soft); }
+.mo-need { display: grid; grid-template-columns: minmax(0, 1fr) 118px 112px; align-items: center; gap: 16px; padding: 11px 0; border-top: 1px solid var(--line-soft); }
 .mo-need:first-child { border-top: 0; }
 .mo-need-t { font-size: 14px; font-weight: 500; color: var(--text); }
 .mo-need-s { margin-top: 1px; font-size: 12.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mo-need-st { display: flex; flex-direction: column; font-size: 12.5px; color: var(--text-soft); line-height: 1.35; }
 .mo-need-st.is-late > span:first-child { color: var(--pos-walkaway); font-weight: 500; }
-.mo-need-go { height: 30px; padding: 0 12px; font-size: 12.5px; white-space: nowrap; }
+.mo-need-go { justify-self: stretch; height: 30px; padding: 0 12px; font-size: 12.5px; white-space: nowrap; }
+/* every row's status and button sit in the same two columns, whatever the words */
+.mo-need-st { justify-self: start; }
 .mo-sub-h { margin-top: 26px; }
 
 /* dates with a small calendar box */
@@ -264,6 +266,84 @@ button.mo-late-it:hover .mo-late-t > span:first-child { text-decoration: underli
 .mo-clients { margin-top: 14px; padding: 14px 16px; border-radius: 12px; box-shadow: 0 0 0 1px var(--line); }
 .mo-set-go { margin-top: 18px; }
 .sx-sec .mo-check { margin-top: 8px; }
+
+/* Ask Clavia about all the matters, on the Overview */
+.mo-ov-askw { margin: 0 0 26px; }
+.mo-ov-ask { max-width: none; margin: 0; }
+.mo-ov-ask .askbar { gap: 10px; }
+.mo-scope-pill { margin-right: auto; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: #F3F1ED; font-size: 12px; color: var(--text-soft); }
+.mo-ov-sugg { margin-top: 10px; }
+.mo-ov-sugg .mo-pill { display: inline-flex; align-items: center; gap: 7px; }
+.mo-ov-sugg .mo-btn-spark { color: #C9A24B; }
+
+/* the latest on the team's matters, and the timeline: one coloured mark per kind of event */
+.mo-feed { display: flex; flex-direction: column; }
+.mo-feed-it { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 10px 0; border: 0; border-top: 1px solid var(--line-soft); background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; }
+.mo-feed-it:first-child { border-top: 0; padding-top: 2px; }
+.mo-feed-it:hover .mo-feed-x { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.mo-feed-ic { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: 8px; background: #F3F1ED; color: var(--text-soft); }
+.mo-feed-ic .mo-kic, .mo-feed-ic svg { display: grid; width: 14px; height: 14px; }
+.mo-feed-ic.is-decision, .mo-feed-ic.is-date { background: var(--pos-fallback-bg); color: var(--pos-fallback); }
+.mo-feed-ic.is-task, .mo-feed-ic.is-signing { background: var(--pos-preferred-bg); color: var(--pos-preferred); }
+.mo-feed-ic.is-email, .mo-feed-ic.is-sharing, .mo-feed-ic.is-update { background: #E9EEF5; color: #4C6A93; }
+.mo-feed-ic.is-access { background: var(--pos-walkaway-bg); color: var(--pos-walkaway); }
+.mo-feed-ic.is-clavia { background: #F6F8F4; color: #C9A24B; box-shadow: inset 0 0 0 1px #E3EAE0; }
+.mo-feed-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mo-feed-x { font-size: 13.5px; line-height: 1.45; color: var(--text); }
+.mo-feed-m { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-faint); min-width: 0; }
+.mo-feed-mt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-feed-w { flex: none; margin-left: auto; font-variant-numeric: tabular-nums; }
+.mo-feed-f { display: flex; align-items: center; gap: 7px; margin: 8px 0 0; padding-top: 10px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--text-faint); }
+.mo-feed-f .mo-btn-spark { color: #C9A24B; }
+
+.mo-tl-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; font-size: 13px; }
+.mo-tl-filter { display: inline-flex; align-items: center; gap: 8px; }
+.mo-select { height: 30px; padding: 0 28px 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: inherit; font-size: 13px; color: var(--text); cursor: pointer; }
+.mo-tl { display: flex; flex-direction: column; gap: 22px; }
+.mo-tl-dh { display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--text); }
+.mo-tl-dh .mo-faint { font-size: 12px; font-weight: 400; }
+.mo-tl-day { position: relative; }
+.mo-tl-it { position: relative; display: flex; gap: 14px; padding: 8px 0; }
+/* one line down the marks joins the day's events */
+.mo-tl-it + .mo-tl-it::before { content: ''; position: absolute; left: 13.5px; top: -8px; height: 16px; width: 1px; background: var(--line); }
+.mo-tl-b { flex: 1; min-width: 0; padding-top: 4px; }
+.mo-tl-t { font-size: 14px; line-height: 1.5; color: var(--text); }
+.mo-tl-m { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 12px; color: var(--text-faint); }
+.mo-tl-m .mt-sep { color: var(--text-faint); }
+.mo-av-xs { width: 18px !important; height: 18px !important; flex: none; }
+.mo-av-xs.mx-ini { font-size: 7.5px; }
+
+/* files and chats as a small table: name, who it came from, when */
+.mo-ftop { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 12px; }
+.mo-fup { padding: 6px 12px; font-size: 13px; }
+.mo-ftable { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.mo-frow { display: grid; grid-template-columns: minmax(0, 1fr) 170px 96px; align-items: center; gap: 14px; width: 100%; padding: 10px 8px; border: 0; border-bottom: 1px solid var(--line-soft); background: none; font: inherit; text-align: left; color: inherit; cursor: pointer; transition: background var(--fast) var(--ease); }
+button.mo-frow:hover { background: var(--pb-hover); }
+button.mo-frow:hover .mo-fn { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.mo-fhead { padding-top: 8px; padding-bottom: 8px; font-size: 12px; color: var(--text-faint); cursor: default; }
+.mo-fname { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mo-fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-ffrom { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; color: var(--text-soft); }
+.mo-ffrom > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-ffrom .mo-feed-ic { width: 18px; height: 18px; border-radius: 5px; }
+.mo-ffrom .mo-feed-ic svg { width: 11px; height: 11px; }
+.mo-fwhen { font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* an empty tab */
+.mo-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 460px; margin: 26px auto 0; padding: 32px 28px; border-radius: 16px; background: var(--bg-sunk, #F6F5F2); text-align: center; }
+.mo-empty-ic { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 4px; border-radius: 12px; background: var(--surface); box-shadow: 0 0 0 1px var(--line); color: var(--text-soft); }
+.mo-empty-ic.is-clavia { color: #C9A24B; }
+.mo-empty-ic.is-clavia svg { width: 18px; height: 18px; }
+.mo-empty b { font-size: 15px; font-weight: 600; color: var(--text); }
+.mo-empty p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-soft); }
+.mo-empty-starts { width: 100%; margin-top: 10px; }
+.mo-empty-go { display: flex; gap: 8px; margin-top: 10px; }
+.mo-empty-go .btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; font-size: 13px; }
+
+/* an email or a file, opened */
+.mo-mailhead { display: flex; flex-direction: column; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.mo-mailbody { white-space: pre-wrap; font-size: 14px; line-height: 1.65; color: var(--text); }
+.mo-filepage { white-space: pre-wrap; padding: 26px 30px; border-radius: 6px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 6px 18px -14px rgba(20,20,19,.25); font-family: var(--serif); font-size: 14.5px; line-height: 1.7; color: var(--text); }
 
 /* narrower windows */
 @media (max-width: 1240px) {

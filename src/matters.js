@@ -85,7 +85,8 @@ const MO_ICONS = {
   'Key date': '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   Matter: '<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
 };
-const moKindIc = (k) => k === 'Clavia' || k === 'Chat' ? h('span', { class: 'mo-ic is-clavia', html: SPARK_ONE }) : h('span', { class: 'mo-ic', html: MO_IC(MO_ICONS[k] || MO_ICONS.Matter, 14) });
+const moKindKey = (k) => ({ Decision: 'decision', Task: 'task', Email: 'email', File: 'file', Update: 'update', Signing: 'signing', Sharing: 'sharing', Access: 'access', 'Key date': 'date', Matter: 'matter', Chat: 'clavia', Clavia: 'clavia' })[k] || 'matter';
+const moKindIc = (k) => h('span', { class: 'mo-kic', html: k === 'Clavia' || k === 'Chat' ? SPARK_ONE : MO_IC(MO_ICONS[k] || MO_ICONS.Matter, 14) });
 
 /* draw again where you are: the page keeps its scroll */
 function moRedraw() {
@@ -218,6 +219,7 @@ function moOverview(d) {
   const latest = open.flatMap(m => m.tl.map(e => ({ ...e, m }))).sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 5);
   return h('div', { class: 'mo-ov' },
     h('p', { class: 'mo-line' }, ...lineBits),
+    moOverviewAsk(),
     h('div', { class: 'mo-kpis' },
       kpi('Open matters', String(open.length), buckets.map(([k, n]) => `${n} ${MO_ST[k].label.toLowerCase()}`).join(' · '), setView('all')),
       kpi('Your tasks this week', String(week.length), myTasks.some(x => moLate(x.t)) ? h('span', { class: 'mo-red' }, `${myTasks.filter(x => moLate(x.t)).length} overdue`) : 'None overdue', setView('tasks')),
@@ -237,10 +239,48 @@ function moOverview(d) {
           soon.length ? h('div', { class: 'mo-dates' }, ...soon.slice(0, 4).map(x => moDateRow(x, x.m, () => moGo(x.m.id, 'tasks')))) : h('p', { class: 'rqp-empty' }, 'No dates in the next 3 weeks.')),
         h('section', { class: 'rqv' },
           h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, 'Latest on the Team’s Matters')),
-          latest.length ? h('div', { class: 'mo-latest' }, ...latest.map(e => h('button', { class: 'mo-late-it', type: 'button', onclick: () => moGo(e.m.id, 'timeline') },
-            e.who === 'Clavia' ? h('span', { class: 'mo-ic is-clavia', html: SPARK_ONE }) : mxFace(e.who, 'pb-av mo-av'),
-            h('span', { class: 'mo-late-t' }, h('span', {}, e.text), h('span', { class: 'mo-faint' }, `${e.m.title} · ${pbWhen(e.when)}`))))) : h('p', { class: 'rqp-empty' }, 'Nothing new.')))));
+          latest.length ? h('div', { class: 'mo-feed' }, ...latest.map(e => h('button', { class: 'mo-feed-it', type: 'button', onclick: () => moGo(e.m.id, 'timeline') },
+            h('span', { class: 'mo-feed-ic is-' + moKindKey(e.kind) }, moKindIc(e.kind)),
+            h('span', { class: 'mo-feed-t' }, h('span', { class: 'mo-feed-x' }, e.text),
+              h('span', { class: 'mo-feed-m' }, h('span', { class: 'mo-feed-mt' }, e.m.title), h('span', { class: 'mo-feed-w' }, pbWhen(e.when))))))) : h('p', { class: 'rqp-empty' }, 'Nothing new.'),
+          h('p', { class: 'mo-feed-f' }, h('span', { class: 'mo-btn-spark', html: SPARK_ONE }), `Clavia keeps all ${mxPlural(open.length, 'open matter')} up to date`)))));
 }
+/* Ask Clavia about all the matters at once: the app's own composer, with a few questions to start from */
+const MO_ASK_ALL = {
+  'What is due from me this week?': () => {
+    const mine = moOpenMatters().flatMap(m => moOpenTasks(m).filter(t => t.who === USER.name && t.due && moDays(t.due) <= 7).map(t => `${t.t} (${m.title}, ${moDays(t.due) < 0 ? 'overdue since ' + moSay(t.due) : moSay(t.due)})`));
+    return mine.length ? `You have ${mxPlural(mine.length, 'task')} due in the next 7 days:\n\n${mine.map(x => '• ' + x).join('\n')}` : 'Nothing is due from you in the next 7 days.';
+  },
+  'Which hearings are coming up?': () => {
+    const hs = moData().matters.flatMap(m => moUpcoming(m).filter(x => x.kind === 'Hearing').map(x => `${moSay(x.d)}: ${x.what} (${m.title}, ${m.owner})`));
+    return hs.length ? `${mxPlural(hs.length, 'hearing')} coming up:\n\n${hs.map(x => '• ' + x).join('\n')}` : 'No hearings are coming up.';
+  },
+  'Which matters are waiting on someone else?': () => {
+    const w = moOpenMatters().filter(m => m.status === 'waiting' || moOpenTasks(m).some(t => !MX_LEGAL.some(p => p.name === t.who)));
+    return w.length ? `${mxPlural(w.length, 'matter')} waiting on someone outside legal:\n\n${w.map(m => `• ${m.title}: ${m.status === 'waiting' ? moStLabel(m) : moOpenTasks(m).filter(t => !MX_LEGAL.some(p => p.name === t.who)).map(t => `${t.who.split(' ')[0]} to ${t.t.charAt(0).toLowerCase() + t.t.slice(1)}`).join('; ')}`).join('\n')}` : 'Nothing is waiting on anyone else.';
+  },
+  'Which decisions need a fresh look?': () => {
+    const f = moOpenMatters().flatMap(m => m.decisions.filter(x => x.st === 'flag').map(x => `${x.what} (${m.title})`));
+    return f.length ? `${mxPlural(f.length, 'decision')} may need a fresh look, because a fact behind it changed:\n\n${f.map(x => '• ' + x).join('\n')}` : 'No decisions need a fresh look. Clavia flags one as soon as a fact behind it changes.';
+  },
+};
+function moAskAll(q) {
+  const run = MO_ASK_ALL[q];
+  const open = moOpenMatters();
+  openSession({ id: 'mo-all-' + Date.now(), label: titleFor(q), meta: 'now', people: [{ name: USER.name, online: true, owner: true }],
+    messages: [{ role: 'user', text: q, context: { where: 'In', artifact: 'All team matters' } },
+      { role: 'bot', cites: null, steps: [{ source: 'project', query: 'Read the team’s matters', count: mxPlural(open.length, 'open matter') }],
+        answer: run ? run() : `I read the ${mxPlural(open.length, 'open matter')} for this. There is no model behind this demo yet, so I can only answer the suggested questions for real. Try one of them, or open a matter and ask Clavia there.` }] });
+}
+function moOverviewAsk() {
+  const ta = h('textarea', { rows: '1', 'aria-label': 'Ask about your matters', placeholder: 'Ask about your matters, deadlines or decisions' });
+  const send = h('button', { class: 'send', type: 'button', disabled: true, 'aria-label': 'Send', html: ARROW });
+  const box = h('div', { class: 'ask mx-proj-ask mo-ov-ask' }, ta, h('div', { class: 'askbar' }, h('span', { class: 'mo-scope-pill' }, 'All team matters'), send));
+  queueMicrotask(() => { if (box.isConnected) initComposer(box, { noModel: true, noTokens: true, attach: [], onSend: (text) => moAskAll(text) }); });
+  return h('div', { class: 'mo-ov-askw' }, box,
+    h('div', { class: 'mo-pills mo-ov-sugg' }, ...Object.keys(MO_ASK_ALL).map(q => h('button', { class: 'mo-pill', type: 'button', onclick: () => moAskAll(q) }, h('span', { class: 'mo-btn-spark', html: SPARK_ONE }), q))));
+}
+
 /* a date with its day in a small calendar box */
 const moDateRow = (x, m, run, extra) => h(run ? 'button' : 'div', { class: 'mo-date', ...(run ? { type: 'button', onclick: run } : {}) },
   h('span', { class: 'mo-cal' + (moDays(x.d) <= 2 && moDays(x.d) >= 0 ? ' is-soon' : '') }, h('span', {}, new Date(x.d).toLocaleDateString('en-GB', { month: 'short' })), h('b', {}, String(new Date(x.d).getDate()))),
@@ -582,14 +622,40 @@ function moTabFiles(m) {
       h('div', { class: 'mo-faint' }, 'From page 1 of “Notice of hearing.pdf”'),
       h('div', { class: 'mo-says-go' }, h('button', { class: 'btn btn--primary', type: 'button', onclick: () => moAddHearing(m) }, 'Add to Key Dates, With Reminders'),
         h('button', { class: 'btn', type: 'button', onclick: () => { m.found = false; save(); moRedraw(); } }, 'Not Now'))) : null,
-    moPills([['all', `All · ${m.files.length}`], ['file', `Files · ${m.files.filter(f => f.kind === 'file').length}`], ['email', `Emails · ${m.files.filter(f => f.kind === 'email').length}`]], kind, (k) => { MX.matters.fkind = k; moRedraw(); }),
-    list.length ? h('div', { class: 'mo-flist' }, ...list.map(f => h('button', { class: 'mo-file', type: 'button', onclick: () => pbToast(f.kind === 'email' ? 'Opens the email' : 'Opens the file') },
-      f.kind === 'email' ? h('span', { class: 'mo-ic', html: MO_IC(MO_ICONS.Email, 15) }) : mxTile('file', mxExt(f.name)),
-      h('span', { class: 'mo-late-t' }, h('span', {}, f.name), h('span', { class: 'mo-faint' }, [f.kind === 'email' ? 'Email' : mxExt(f.name).toUpperCase() + ' file', f.note].filter(Boolean).join(' · '))),
-      h('span', { class: 'mo-faint mo-file-r' }, h('span', {}, f.from), h('span', {}, pbWhen(f.when))))))
-      : h('div', { class: 'rqp-none mo-none' }, h('b', {}, 'No files or emails yet'), h('p', {}, 'Forward emails to the matter’s address, or drop files here.')),
+    h('div', { class: 'mo-ftop' }, moPills([['all', `All · ${m.files.length}`], ['file', `Files · ${m.files.filter(f => f.kind === 'file').length}`], ['email', `Emails · ${m.files.filter(f => f.kind === 'email').length}`]], kind, (k) => { MX.matters.fkind = k; moRedraw(); }),
+      !closed ? h('button', { class: 'btn mo-fup', type: 'button', onclick: () => pbToast('Upload a file from your computer, or drop it on this page') }, icon('plus', 'ico ico-14'), 'Add a File') : null),
+    list.length ? h('div', { class: 'mo-ftable' },
+      h('div', { class: 'mo-frow mo-fhead' }, h('span', {}, 'Name'), h('span', {}, 'From'), h('span', {}, 'Added')),
+      ...list.map(f => h('button', { class: 'mo-frow', type: 'button', onclick: () => moOpenFile(m, f) },
+        h('span', { class: 'mo-fname' }, f.kind === 'email' ? h('span', { class: 'mo-feed-ic is-email' }, moKindIc('Email')) : mxTile('file', mxExt(f.name)),
+          h('span', { class: 'mo-late-t' }, h('span', { class: 'mo-fn' }, f.name), h('span', { class: 'mo-faint' }, [f.kind === 'email' ? 'Email' : mxExt(f.name).toUpperCase() + ' file', f.note].filter(Boolean).join(' · ')))),
+        h('span', { class: 'mo-ffrom' }, f.from === 'Clavia' ? h('span', { class: 'mo-feed-ic is-clavia' }, moKindIc('Clavia')) : mxFace(f.from, 'pb-av mo-av-xs'), h('span', {}, f.from)),
+        h('span', { class: 'mo-faint mo-fwhen' }, pbWhen(f.when)))))
+      : moEmpty(MO_ICONS.File, 'No files or emails yet', 'Forward emails to the matter’s address, or drop files here. Clavia reads each one and picks out dates.'),
   ];
 }
+/* an email or a file opens where you are, with what it says */
+const MO_BODIES = {
+  'Orbis invoices and supplier contract': 'Hi legal team,\n\nOrbis Supplies emailed asking for £64,000 for 8 invoices we haven’t paid (April to June). We held back payment because two deliveries were late, in May and June. I chased Orbis in writing on 2 and 19 May.\n\nThe invoices and the supplier contract are attached. Can legal take this?\n\nThanks,\nTom',
+  'Claim form and notice of hearing': 'Dear Sirs,\n\nWe act for Orbis Supplies Ltd. Please find attached our client’s claim form and the court’s notice of hearing. The hearing will take place at Croydon County Court at 10:00.\n\nYours faithfully,\nHarlow & Co',
+  'Their changes (marked-up contract)': 'Hi Roger,\n\nPlease find our comments on the renewal contract attached. We have made 14 changes, mostly small. The main points are the cap on liability, payment terms and ownership of features built for us.\n\nBest regards,\nVantage legal',
+  'Notice of hearing': 'The tribunal has listed the claim of J. Rowe against Lumen Analytics Ltd for a full hearing. Both sides must send their documents 3 days before the hearing.',
+  'Court listing for the hearing': 'Dear Elena,\n\nThe Delhi High Court has listed the matter for hearing at 10:30. Could you send us the India sales figures by the end of the week, so we can show the court how the name is being used?\n\nRegards,\nSen & Rao',
+  'Their data sharing agreement': 'Hi Daniel,\n\nAttached is our data sharing agreement for the pilot. We would like to start sharing patient data next month. Let us know if your legal team has comments.\n\nBrindle Health',
+};
+function moOpenFile(m, f) {
+  const email = f.kind === 'email';
+  const body = MO_BODIES[f.name] || (email ? `Sent to ${m.id.toLowerCase()}@legal.lumen.io and saved on this matter.` : `${f.name}\n\nSaved on this matter${f.note ? ' · ' + f.note.toLowerCase() : ''}. Clavia has read it and uses it in answers about ${m.title}.`);
+  moDialog({ title: f.name, sub: `${email ? 'Email from' : 'Added by'} ${f.from} · ${pbWhen(f.when)}`, wide: true,
+    body: [email ? h('div', { class: 'mo-mailhead' }, h('div', {}, h('span', { class: 'mo-faint' }, 'From  '), f.from), h('div', {}, h('span', { class: 'mo-faint' }, 'To  '), `${m.id.toLowerCase()}@legal.lumen.io`),
+        f.note ? h('div', {}, h('span', { class: 'mo-faint' }, 'Attached  '), f.note) : null) : null,
+      h('div', { class: email ? 'mo-mailbody' : 'mo-filepage' }, body),
+      moClaviaSays(email ? 'Clavia saved this email on the matter and checked it for dates and new facts.' : 'Clavia has read this file. Ask about it from the bar at the foot of the matter.')],
+    foot: (close) => [email ? null : moBtn('Open in Word', () => { close(); pbToast('Opens in Word'); }), moBtn('Ask Clavia About It', () => { close(); moOpenAsk(m, `What does “${f.name}” say?`); }), moBtn('Close', close, true)] });
+}
+/* an empty tab: a mark, what goes here, and how it gets here */
+const moEmpty = (ic, title, say, ...acts) => h('div', { class: 'mo-empty' }, h('span', { class: 'mo-empty-ic', html: MO_IC(ic, 20) }), h('b', {}, title), h('p', {}, say), acts.length ? h('div', { class: 'mo-empty-go' }, ...acts) : null);
+
 function moAddHearing(m) {
   const day = moDay(20);
   m.dates.push({ d: day, what: 'Court hearing, Croydon County Court, 10:00', kind: 'Hearing' });
@@ -617,12 +683,20 @@ function moPrep(m) {
 
 /* ── Chats ── */
 function moTabChats(m) {
-  return [h('p', { class: 'mo-faint mo-help' }, 'Chats about this matter. Clavia used its key facts in each one.'),
-    m.chats.length ? h('div', { class: 'mo-flist' }, ...m.chats.map(c => h('button', { class: 'mo-file', type: 'button', onclick: () => moChat(m, c) },
-      h('span', { class: 'mo-ic is-clavia', html: SPARK_ONE }), h('span', { class: 'mo-late-t' }, h('span', {}, c.t), h('span', { class: 'mo-faint' }, 'Clavia used this matter’s key facts')),
-      h('span', { class: 'mo-faint mo-file-r' }, h('span', { class: 'rqv-who' }, mxFace(c.who, 'pb-av rqv-av'), moFirstName(c.who)), h('span', {}, pbWhen(c.when))))))
-      : h('div', { class: 'rqp-none mo-none' }, h('b', {}, 'No chats yet'), h('p', {}, 'When you ask Clavia about this matter, you can save the chat here.'),
-        h('div', { class: 'rqp-none-go' }, h('button', { class: 'btn btn--primary', type: 'button', onclick: () => moOpenAsk(m) }, 'Ask Clavia')))];
+  const starts = m.ask.slice(0, 3).map(([q]) => q);
+  return [
+    m.chats.length ? h('p', { class: 'mo-faint mo-help' }, 'Chats about this matter. Clavia used its key facts in each one.') : null,
+    m.chats.length ? h('div', { class: 'mo-ftable' }, ...m.chats.map(c => h('button', { class: 'mo-frow mo-chatrow', type: 'button', onclick: () => moChat(m, c) },
+      h('span', { class: 'mo-fname' }, h('span', { class: 'mo-feed-ic is-clavia' }, moKindIc('Clavia')), h('span', { class: 'mo-late-t' }, h('span', { class: 'mo-fn' }, c.t), h('span', { class: 'mo-faint' }, 'Clavia used this matter’s key facts'))),
+      h('span', { class: 'mo-ffrom' }, mxFace(c.who, 'pb-av mo-av-xs'), h('span', {}, moFirstName(c.who))),
+      h('span', { class: 'mo-faint mo-fwhen' }, pbWhen(c.when))))) : null,
+    !m.chats.length ? h('div', { class: 'mo-empty is-chat' },
+      h('span', { class: 'mo-empty-ic is-clavia', html: SPARK_ONE }),
+      h('b', {}, 'No chats yet'),
+      h('p', {}, 'Ask Clavia anything about this matter. It answers from the matter’s own facts, files and decisions, and you choose which chats to keep here.'),
+      starts.length ? h('div', { class: 'mo-starters mo-empty-starts' }, ...starts.map(q => h('button', { class: 'mo-starter', type: 'button', onclick: () => moOpenAsk(m, q) }, h('span', { class: 'mo-says-ic', html: SPARK_ONE }), q))) : null,
+      h('div', { class: 'mo-empty-go' }, h('button', { class: 'btn btn--primary', type: 'button', onclick: () => moOpenAsk(m) }, h('span', { class: 'mo-btn-spark', html: SPARK_ONE }), 'Ask Clavia'))) : null,
+  ];
 }
 /* a saved chat opens as a full conversation, with the matter as what was read */
 function moChat(m, c) {
@@ -787,19 +861,31 @@ function moPreviewTom(m) {
     foot: (close) => [moBtn('Close', close, true)] });
 }
 
-/* ── Timeline ── */
+/* ── Timeline: everything that happened, newest first, one day at a time ── */
 function moTabTimeline(m) {
   const kinds = [...new Set([...m.tl].reverse().map(e => e.kind))];
   const on = MX.matters.tlk && kinds.includes(MX.matters.tlk) ? MX.matters.tlk : 'all';
   const list = [...m.tl].map((e, i) => ({ ...e, i })).sort((a, b) => (a.when < b.when ? 1 : a.when > b.when ? -1 : b.i - a.i)).filter(e => on === 'all' || e.kind === on);
-  const out = []; let day = null;
+  const days = [];
   for (const e of list) {
-    const dd = moDays(e.when) === 0 ? 'Today' : moDays(e.when) === -1 ? 'Yesterday' : moSay(e.when);
-    if (dd !== day) { day = dd; out.push(h('div', { class: 'rqa-day' }, dd)); }
-    out.push(h('div', { class: 'rqa-it' }, h('span', { class: 'rqa-dot' }, moKindIc(e.kind)),
-      h('div', { class: 'rqa-line' }, h('span', {}, e.text), h('span', { class: 'rqa-time' }, `${e.who === 'Clavia' ? 'Clavia' : moFirstName(e.who)} · ${e.kind}`))));
+    const dd = moDays(e.when) === 0 ? 'Today' : moDays(e.when) === -1 ? 'Yesterday' : new Date(e.when).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (!days.length || days[days.length - 1][0] !== dd) days.push([dd, []]);
+    days[days.length - 1][1].push(e);
   }
-  return [moPills([['all', 'All'], ...kinds], on, (k) => { MX.matters.tlk = k; moRedraw(); }), h('div', { class: 'rqa mo-tl' }, ...out)];
+  const time = (e) => new Date(e.when).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return [
+    h('div', { class: 'mo-tl-bar' }, h('span', { class: 'mo-faint' }, `${mxPlural(m.tl.length, 'event')} since the matter opened`),
+      h('label', { class: 'mo-tl-filter' }, h('span', { class: 'mo-faint' }, 'Show'),
+        h('select', { class: 'mo-select', onchange: (e) => { MX.matters.tlk = e.target.value; moRedraw(); } },
+          h('option', { value: 'all', selected: on === 'all' }, 'Everything'), ...kinds.map(k => h('option', { value: k, selected: on === k }, k + 's'))))),
+    h('div', { class: 'mo-tl' }, ...days.map(([dd, evs]) => h('section', { class: 'mo-tl-day' },
+      h('h4', { class: 'mo-tl-dh' }, dd, h('span', { class: 'mo-faint' }, mxPlural(evs.length, 'event'))),
+      ...evs.map(e => h('div', { class: 'mo-tl-it' },
+        h('span', { class: 'mo-feed-ic is-' + moKindKey(e.kind) }, moKindIc(e.kind)),
+        h('div', { class: 'mo-tl-b' },
+          h('div', { class: 'mo-tl-t' }, e.text),
+          h('div', { class: 'mo-tl-m' }, e.who === 'Clavia' ? null : mxFace(e.who, 'pb-av mo-av-xs'), h('span', {}, e.who === 'Clavia' ? 'Clavia' : e.who),
+            h('span', { class: 'mt-sep' }, '·'), h('span', {}, e.kind), h('span', { class: 'mt-sep' }, '·'), h('span', {}, time(e)))))))))];
 }
 
 /* ==================================================================
