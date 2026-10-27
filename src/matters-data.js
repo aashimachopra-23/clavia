@@ -9,7 +9,7 @@
    is the one told in full.
 ================================================================== */
 
-const MO_SEED_V = 2;
+const MO_SEED_V = 3;
 
 /* a day counted from today, kept as a date */
 const moDay = (n) => {

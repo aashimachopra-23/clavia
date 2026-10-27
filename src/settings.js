@@ -15,10 +15,9 @@ MX.settings = { open: null };
 
 const ST_NAV = [
   { group: 'Workspace', items: [['general', 'General'], ['members', 'Members']] },
-  { group: 'Intake', items: [['channels', 'Channels'], ['details', 'Request details'], ['rules', 'Routing rules']] },
+  { group: 'Intake', items: [['channels', 'Channels'], ['details', 'Request details'], ['rules', 'Routing rules'], ['matter-kinds', 'Kinds of matter'], ['matter-rules', 'Who gets which matter'], ['matters', 'Matter numbers']] },
   { group: 'Horizon', items: [['profile', 'Company profile'], ['delivery', 'Delivery']] },
   { group: 'Connections', items: [['connectors', 'Connectors']] },
-  { group: 'Matters', items: [['matters', 'Numbering'], ['matter-kinds', 'Kinds of Matter'], ['matter-rules', 'Who Gets Which Matter']] },
 ];
 
 function stConns() {

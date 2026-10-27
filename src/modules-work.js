@@ -2777,7 +2777,11 @@ function intakePage(r, opts = {}) {
     onclick: (e) => { e.stopPropagation(); mxGlyphs(); menu(more, [
       ...(INTAKE_FX.channel && r.submitter !== USER.name ? [{ label: `Message ${first}`, icon: 'ask', run: () => messageRequester() }] : []),
       typeof moFromRequest === 'function' && !r.mt && !mxClosed(r) ? { label: 'Turn into a Matter', icon: 'open', run: () => moFromRequest(r) } : null,
-      !mxClosed(r) ? { label: 'Mark as Completed', icon: 'use', run: () => { r.status = 'done'; r.updated = mxNow(); save(); add({ ev: 'status', what: 'moved this to Completed' }); mxClose('intake'); go('intake'); pbToast(`${r.id} is completed`); } } : null,
+      /* a matter is handed over with a brief, and closed with how it ended and what we learned (matters.js) */
+      r.mt && !mxClosed(r) ? { label: 'Hand Over', icon: 'share', run: () => moHandOver(moAsMatter(r)) } : null,
+      r.mt && !mxClosed(r) ? { label: 'Close Matter', icon: 'use', run: () => moClose(moAsMatter(r)) } : null,
+      r.mt && mxClosed(r) ? { label: 'Reopen Matter', icon: 'use', run: () => moReopen(moAsMatter(r)) } : null,
+      !mxClosed(r) && !r.mt ? { label: 'Mark as Completed', icon: 'use', run: () => { r.status = 'done'; r.updated = mxNow(); save(); add({ ev: 'status', what: 'moved this to Completed' }); mxClose('intake'); go('intake'); pbToast(`${r.id} is completed`); } } : null,
       ...(INTAKE_FX.portal ? [{ label: 'Open Requester View', icon: 'open', run: () => { MX.intake.open = r.id + '/requester'; go('intake'); } }] : []),
       { label: 'Share', icon: 'share', run: () => { navigator.clipboard?.writeText(location.href).catch(() => {}); pbToast('Link copied. Anyone in legal can open it.'); } },
       { label: 'Copy Link', icon: 'copy', run: () => { navigator.clipboard?.writeText(location.href).catch(() => {}); pbToast('Link copied'); } },
