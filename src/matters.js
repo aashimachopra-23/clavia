@@ -949,9 +949,9 @@ function moReqExtra(r, tab) {
   return [];
 }
 /* Clavia's suggestion on a request that looks big */
-function moSuggestLine(r) {
+/* requests that look like long work get a "Turn into a Matter" button beside the status; the rest have it in the ⋯ menu */
+function moTurnBtn(r) {
   if (r.mt || mxClosed(r) || !/\b(owe|owes|owed|claim|claims|court|tribunal|dispute|sue|sued|lawsuit|unfair)\b/i.test(r.title + ' ' + (r.detail || ''))) return null;
-  return h('div', { class: 'mo-says mo-req-sg' }, h('span', { class: 'mo-says-ic', html: SPARK_ONE }),
-    h('div', {}, h('b', {}, 'This looks like it will take a while.'), ' Turning it into a matter adds tasks, key dates, decisions and money, and keeps the same number.'),
-    h('button', { class: 'btn', type: 'button', onclick: () => moFromRequest(r) }, 'Turn into a Matter'));
+  return h('button', { class: 'btn mo-turn', type: 'button', 'data-tip': 'This may take a while. A matter adds tasks, dates and decisions.', onclick: () => moFromRequest(r) },
+    h('span', { class: 'mo-turn-ic', html: SPARK_ONE }), 'Turn into a Matter');
 }

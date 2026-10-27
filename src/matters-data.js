@@ -219,6 +219,8 @@ function moOrbis(rqId, keep, priv) {
 /* Tom's request about Orbis, put into Intake once so a matter can be opened from it */
 const MO_ORBIS_ASK = 'Orbis Supplies emailed asking for £64,000 for invoices we never paid. We held back payment because two deliveries were late (May and June). Invoices and the supplier contract attached. Can legal take this?';
 function moIntakeSeed(d) {
+  /* an earlier preview left "opened this as matter MT-…" on requests that are not matters; clear it once */
+  if (d.tidyV !== 1) { for (const r of d.intake) if (!r.mt && r.activity) r.activity = r.activity.filter(a => !/as matter MT-/.test(a.what || '')); d.tidyV = 1; }
   if (d.orbisRq) return;
   const id = 'RQ-' + (Math.max(1037, ...d.intake.map(q => +q.id.split('-')[1] || 0)) + 1);
   const due = new Date(); due.setDate(due.getDate() + 1); due.setHours(17, 0, 0, 0);

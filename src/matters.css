@@ -500,8 +500,9 @@ button.mo-frow:hover .mo-fn { text-decoration: underline; text-underline-offset:
 
 /* a request that is a matter, on the Intake request page */
 .mo-mt-chip { margin-left: 8px; height: 20px; font-size: 11.5px; background: #E9EEF5; color: #4C6A93; }
-.mo-req-sg { align-items: center; margin: 16px 0 0; }
-.mo-req-sg .btn { flex: none; padding: 6px 12px; font-size: 13px; }
+.mo-turn { height: 30px; padding: 0 12px 0 10px; border-radius: 999px; border-color: #E6E2DB; box-shadow: 0 1px 2px rgba(26,26,24,.05); white-space: nowrap; }
+.mo-turn-ic { display: grid; width: 14px; height: 14px; }
+.mo-turn-ic svg { width: 14px; height: 14px; }
 .mo-req-files { margin-top: 26px; }
 .rqp-body[data-tab="team"] > .rqv { margin-top: 26px; }
 .rqv > .rqp-addf.mo-addtask[hidden] { display: none; }

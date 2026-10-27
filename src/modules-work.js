@@ -353,7 +353,7 @@ function mxIntake() {
   /* 15 Oct: the two Gulf Systems requests told in full, and Brightwell at full length (intake-demo.js) */
   if (typeof mxDemoSeed === 'function') mxDemoSeed(d);
   /* Tom's Orbis request, the one the Matters demo opens as a matter (matters-data.js) */
-  if (typeof moIntakeSeed === 'function') { const had = d.orbisRq; moIntakeSeed(d); if (!had) save(); }
+  if (typeof moIntakeSeed === 'function') { const had = d.orbisRq, tidy = d.tidyV; moIntakeSeed(d); if (!had || tidy !== 1) save(); }
   /* the demo matters, as requests that are matters (matters-data.js) */
   if (typeof moMattersSeed === 'function' && d.mattersInIntakeV !== 1) { moMattersSeed(d); save(); }
   /* the requests Roger keeps an eye on without having them */
@@ -2797,8 +2797,8 @@ function intakePage(r, opts = {}) {
       h('div', { class: 'br-top' },
         embed ? h('span', {}) : h('button', { class: 'br-back', type: 'button', onclick: () => { mxClose('intake'); go('intake'); } },
           h('span', { class: 'br-back-a', html: ICON('<path d="M19 12H5M11 6l-6 6 6 6"/>', 15) }), INTAKE_NAME),
-        h('div', { class: 'br-top-r' }, stageBtn, more)),
-      title, meta, controls, typeof moSuggestLine === 'function' ? moSuggestLine(r) : null, tabs, body),
+        h('div', { class: 'br-top-r' }, typeof moTurnBtn === 'function' ? moTurnBtn(r) : null, stageBtn, more)),
+      title, meta, controls, tabs, body),
     dock);
   /* once the tabs are holding at the top, a soft edge keeps what slides under from merging into them */
   const leftIn = left.querySelector('.rqp-left-in');
