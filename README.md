@@ -318,6 +318,36 @@ marks), `MX_ST` (status marks). `pbWaysMenu` gained `{ sec }` labels and
 opened from these modules across a reload.
 
 
+## Matters
+
+`src/matters.js` + `src/matters.css`, data in `src/matters-data.js` (seed,
+`MO_SEED_V`). Rail item after Contracts; routes `#matters` and
+`#matters/<id>`. State lives in `state.mo`; `MX.matters` holds what is open.
+A matter is a piece of legal work from opened to closed. Projects is unchanged.
+
+- **List page:** four views in the header switch: Overview (what needs you
+  today: four numbers, Needs You, Coming Up, Key Dates, the latest on the
+  team's matters), All Matters (the shared `mxTable`), Tasks (grouped by
+  when they are due; Mine, Waiting on Others, Whole Team) and Key Dates.
+- **New Matter:** from an Intake request (`moFromRequest`: its facts, files
+  and the person who asked come across, with first tasks to keep or drop) or
+  blank (`moBlank`). An Intake request's ⋯ menu also has Open as a Matter.
+  Tom's "Orbis says we owe them £64,000" is put into Intake once
+  (`moIntakeSeed`) and opens as MT-208, the matter told in full.
+- **A matter** uses the Intake request page's frame: back, title, number,
+  owner, five stages, tabs (Overview, Tasks and Dates, Files, Chats,
+  Decisions, Updates, People, Timeline) and the "Ask about…" bar. Ask Clavia
+  opens on the right, where a request shows its document: answers from this
+  matter only, with Save to Matter, Make It a Task and Post as Update.
+- **Dialogs** (`moDialog`, made like Submit New Request): key facts, money,
+  proof to close a task, record a decision, keep someone out, share with
+  outside lawyers and preview what they see, hand over, hearing prep note,
+  close.
+- **Settings › Matters › Numbering:** our own numbers (MT-208) or a client and
+  a number (LUM-UK · 0208).
+- Dates are counted from the day the demo is first opened; weekends move to
+  the nearest working day.
+
 ## Skills
 
 `src/skills.js` + `src/skills.css`, data in `src/skills-data.js`. Rail item

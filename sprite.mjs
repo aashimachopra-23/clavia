@@ -21,6 +21,7 @@ const LINE = {
   search:    { file: 'icon-search.svg',    shift: '0.75 0.75' },
   dolist:    { file: 'icon-dolist.svg',    shift: '0.5 0.5' },
   projects:  { file: 'icon-projects.svg',  shift: '0 0.75' },
+  matters:   { file: 'icon-matters.svg' },
   routines:  { file: 'icon-routines.svg' },
   meetings:  { file: 'icon-meetings.svg',  shift: '0.75 0' },
   artifacts: { file: 'icon-artifacts.svg', shift: '0.75 0' },
