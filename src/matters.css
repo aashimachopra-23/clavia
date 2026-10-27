@@ -140,8 +140,13 @@ button.mo-late-it:hover .mo-late-t > span:first-child { text-decoration: underli
 .mo-tabs { overflow-x: auto; scrollbar-width: none; }
 .mo-tabs::-webkit-scrollbar { display: none; }
 /* with Ask Clavia open the page is narrower: only the stage you are at keeps its name */
-.mo-page.has-ask .mo-steps .rqp-step:not(.is-now) .rqp-step-t { display: none; }
-.mo-page.has-side .rqp-left-in > * { max-width: 680px; }
+.mo-page .mo-steps .rqp-step:not(.is-now) .rqp-step-t { display: none; }
+/* beside the document the page is narrower: the stage you are at keeps its name, the others say theirs on hover */
+.mo-page .mo-frow:not(.mo-fhead) { grid-template-columns: minmax(0, 1fr) 140px 92px; }
+.mo-page .mo-fhead { grid-template-columns: minmax(0, 1fr) 140px 92px; }
+.mo-page .mo-ftable.is-flat .mo-frow { grid-template-columns: minmax(0, 1fr); }
+/* Key Dates sits inside the Matters list, whose search already covers it */
+.mo .mx-alt .pb-list-find { display: none; }
 
 /* the side panel: key facts, people, money and linked records, always to hand */
 .mo-side { background: var(--surface); border-left: 1px solid var(--line); }
@@ -372,6 +377,22 @@ button.mo-frow:hover .mo-fn { text-decoration: underline; text-underline-offset:
 .mo-ffrom .mo-feed-ic { width: 18px; height: 18px; border-radius: 5px; }
 .mo-ffrom .mo-feed-ic svg { width: 11px; height: 11px; }
 .mo-fwhen { font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* the document pane on the right, as on an Intake request */
+.mo-docsw { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 0; border: 0; background: none; font: inherit; color: var(--text); cursor: pointer; }
+.mo-docsw .rqp-doc-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-docsw .rqp-ver-c { color: var(--text-faint); }
+.mo-doc-sub { font-size: 12px; }
+.mo-docpage { padding: 40px 48px; border-radius: 4px; background: var(--surface); box-shadow: 0 1px 2px rgba(20,20,19,.05), 0 0 0 1px rgba(20,20,19,.04); min-height: 60vh; }
+.mo-doc-t { margin: 0 0 14px; font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.3; color: var(--text); }
+.mo-docpage .mo-mailhead { margin-bottom: 18px; }
+.mo-docpage .mo-mailhead .mo-doc-t { margin-bottom: 8px; }
+.mo-doc-body { white-space: pre-wrap; font-family: var(--serif); font-size: 15px; line-height: 1.75; color: var(--text); }
+.mo-docpage.is-email .mo-doc-body { font-family: var(--font); font-size: 14px; line-height: 1.65; }
+.mo-frow.is-on { background: #F6F5F2; }
+.mo-frow.is-on .mo-fn { font-weight: 500; }
+.mo-ftable.is-flat { border-top: 0; }
+.mo-ftable.is-flat .mo-frow { grid-template-columns: minmax(0, 1fr); padding-left: 6px; padding-right: 6px; border-bottom: 0; border-radius: 8px; }
 
 /* nothing kept yet, said in one line inside a tab */
 .mo-mini-empty { padding: 12px 14px; border-radius: 12px; background: var(--bg-sunk, #F6F5F2); }

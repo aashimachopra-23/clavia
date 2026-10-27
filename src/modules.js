@@ -296,7 +296,7 @@ function mxTable(cfg) {
       paintDrops = () => {
         const all = cfg.items().filter(passes);
         const tl = tabList(), cur = tl.find(t => t.k === st.tab) || tl[0];
-        const count = (t) => t.k === 'all' ? all.length : all.filter(x => t.in ? t.in(x) : cfg.tabOf(x) === t.k).length;
+        const count = (t) => t.n ? t.n() : t.k === 'all' ? all.length : all.filter(x => t.in ? t.in(x) : cfg.tabOf(x) === t.k).length;
         const view = h('button', { class: 'mx-dd is-view', type: 'button', 'aria-haspopup': 'menu',
           onclick: (e) => { e.stopPropagation(); mxViewPop({ anchor: e.currentTarget, views: tl.map(t => ({ label: t.label, n: count(t), on: t.k === st.tab, run: () => { st.tab = t.k; paint(); } })) }); } },
           cur.label, h('span', { class: 'mx-dd-n' }, String(count(cur))), h('span', { class: 'mx-dd-c', html: CHEV }));
