@@ -320,33 +320,31 @@ opened from these modules across a reload.
 
 ## Matters
 
-`src/matters.js` + `src/matters.css`, data in `src/matters-data.js` (seed,
-`MO_SEED_V`). Rail item after Contracts; routes `#matters` and
-`#matters/<id>`. State lives in `state.mo`; `MX.matters` holds what is open.
-A matter is a piece of legal work from opened to closed. Projects is unchanged.
+A matter is an Intake request that grew into longer work. There is one
+item and one number: "Turn into a Matter" (a request's ⋯ menu, or Clavia's
+suggestion on a request that looks like a dispute) gives the same request a
+matter's parts in `r.mt`. Code: `src/matters.js`, `src/matters.css`, data in
+`src/matters-data.js`. Intake's own code only has small hooks, each a no-op
+for a request that isn't a matter.
 
-- **List page:** four views in the header switch: Overview (what needs you
-  today: four numbers, Needs You, Coming Up, Key Dates, the latest on the
-  team's matters), All Matters (the shared `mxTable`), Tasks (grouped by
-  when they are due; Mine, Waiting on Others, Whole Team) and Key Dates.
-- **New Matter:** from an Intake request (`moFromRequest`: its facts, files
-  and the person who asked come across, with first tasks to keep or drop) or
-  blank (`moBlank`). An Intake request's ⋯ menu also has Open as a Matter.
-  Tom's "Orbis says we owe them £64,000" is put into Intake once
-  (`moIntakeSeed`) and opens as MT-208, the matter told in full.
-- **A matter** uses the Intake request page's frame: back, title, number,
-  owner, five stages, tabs (Overview, Tasks and Dates, Files, Chats,
-  Decisions, Updates, People, Timeline) and the "Ask about…" bar. Ask Clavia
-  opens on the right, where a request shows its document: answers from this
-  matter only, with Save to Matter, Make It a Task and Post as Update.
-- **Dialogs** (`moDialog`, made like Submit New Request): key facts, money,
-  proof to close a task, record a decision, keep someone out, share with
-  outside lawyers and preview what they see, hand over, hearing prep note,
-  close.
-- **Settings › Matters › Numbering:** our own numbers (MT-208) or a client and
-  a number (LUM-UK · 0208).
-- Dates are counted from the day the demo is first opened; weekends move to
-  the nearest working day.
+- **A request that is a matter** shows a "Matter" label and two extra tabs,
+  Tasks and Decisions. Overview adds Next Tasks and Next Dates; Documents adds
+  the matter's emails and files; Details adds key dates, key facts, money and
+  linked records (edited in place); Deal Team adds outside lawyers, kept-out
+  people and the Private switch. Its ⋯ menu has Hand Over and Close Matter
+  (outcome and lesson) in place of Mark as Completed. Everything done on the
+  matter is written to the request's own Activity. Its stages are the five
+  matter stages, also shown on the requester's view.
+- **Opening one** runs a conflict check (`MO_HISTORY`): anyone on the legal
+  team who used to work for the other side is offered to be kept out.
+- **Intake's list** has four more views: Matters, Needs You, Tasks, Key Dates.
+  New Request has "Start a matter" for work that didn't come in as a request.
+- **Settings › Intake** has Kinds of matter, Who gets which matter and Matter
+  numbers.
+- `moAsMatter(r)` gives the matter code a matter made from the request: the
+  number, name, owner, who asked and where it came in are the request's own.
+- The five demo matters are seeded once into Intake (`moMattersSeed`). Dates
+  are counted from the day the demo is first opened.
 
 ## Skills
 
