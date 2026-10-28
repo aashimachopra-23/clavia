@@ -248,7 +248,8 @@ function mxTable(cfg) {
       const list = all.filter(x => st.tab === 'all' || (tabDef?.in ? tabDef.in(x) : cfg.tabOf(x) === st.tab))
         .filter(x => !q || cfg.text(x).toLowerCase().includes(q))
         .sort((a, b) => { const x = cfg.val(a, key), y = cfg.val(b, key); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
-      rows.replaceChildren(...list.map(rowEl));
+      /* a row can carry rows of its own underneath (a matter opened like a folder); not while searching, when every row stands alone */
+      rows.replaceChildren(...list.flatMap(x => [rowEl(x), ...(cfg.under && !q ? cfg.under(x, rowEl) : [])]));
       empty.replaceChildren(q ? `Nothing matches “${st.find.trim()}”.`
         : st.tab === 'all' ? (cfg.empty || 'Nothing here yet.') : `Nothing under ${tab.label}.`);
       empty.hidden = list.length > 0;

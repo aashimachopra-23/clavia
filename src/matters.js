@@ -1068,3 +1068,14 @@ function moAskAnswer(r, q) {
   const k = /due|when|date|week|today|late|overdue|next|task/i.test(q) ? 'due' : /decid|decision|agree|agreed/i.test(q) ? 'decided' : /money|budget|cost|spend|spent|bill|fee/i.test(q) ? 'money' : /request/i.test(q) ? 'reqs' : null;
   return k ? say[k]() : `${m.where || r.title} ${say.due()} ${dec.length ? say.decided() : ''} ${inside.length ? say.reqs() : ''}`.replace(/\s+/g, ' ').trim();
 }
+/* the start of a matter's row in the Intake list: a folder that opens in place to show the requests inside */
+const MO_FOLDER_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>';
+const MO_FOLDER_OPEN_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 17.5v-10a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v1"/><path d="M3.5 17.5l2.6-6.2a1.5 1.5 0 0 1 1.4-.9h12.3a1 1 0 0 1 .9 1.4l-2.4 5.8a1.5 1.5 0 0 1-1.4.9H5a1.5 1.5 0 0 1-1.5-1z"/></svg>';
+function moFolderHead(r, st, repaint) {
+  const n = moInside(r).length, on = !!st.openMt?.[r.id];
+  if (!n) return [h('span', { class: 'mo-folder is-empty', 'data-tip': 'Matter', 'aria-label': 'Matter', html: MO_FOLDER_SVG })];
+  return [h('button', { class: 'mo-folder mo-fold' + (on ? ' is-open' : ''), type: 'button', 'aria-expanded': String(on),
+    'aria-label': on ? 'Close the folder' : 'Open the folder', 'data-tip': on ? 'Hide requests' : `Matter · ${n + 1} requests. Show them`,
+    html: on ? MO_FOLDER_OPEN_SVG : MO_FOLDER_SVG,
+    onclick: (e) => { e.stopPropagation(); (st.openMt ||= {})[r.id] = !on; save(); repaint(); } })];
+}

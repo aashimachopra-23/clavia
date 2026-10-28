@@ -4113,6 +4113,8 @@ function intakeView() {
     tabs: TABS, tabOf: TABOF,
     /* the critical fields as dropdowns in place of tabs (INTAKE_FX.drops) */
     drops: INTAKE_FX.drops ? ['stage', 'attorney', 'submitter', 'source', 'due'] : null,
+    /* a matter opens like a folder: the requests inside show just underneath it (matters.js) */
+    under: (r, rowEl) => r.mt && st.openMt?.[r.id] && typeof moInside === 'function' ? moInside(r).map(q => { const el = rowEl(q); el.classList.add('mo-sub-row'); return el; }) : [],
     /* requests inside a matter show as part of it, not as rows of their own; search still finds them */
     items: () => (st.find || '').trim() ? list : list.filter(r => !(r.inMt && list.some(q => q.id === r.inMt && q.mt))),
     text: (r) => [r.id, r.title, r.deal, r.counterparty, r.type, r.team, r.submitter, r.attorney].join(' '),
@@ -4121,7 +4123,7 @@ function intakeView() {
     val: (r, k) => k === 'created' ? r.created : k === 'delegate' ? (mxDelegate(r) || '~') : k === 'source' ? (r.source ? mxChannel(r).name : 'Manual') : k === 'comments' ? mxWActive(r).length : k === 'stage' ? (order[r.status] ?? 1) : k === 'due' ? r.due : k === 'id' ? r.id : (r[k] || '~').toLowerCase(),
     cells: (r) => INTAKE_FX.columns === 'v2' ? [
       h('span', { class: 'mx-req-id' }, r.id),
-      r.mt ? h('span', { class: 'mo-row-mt' }, h('span', { class: 'pb-row-name' }, r.title), h('span', { class: 'mo-chip mo-mt-chip' }, 'Matter'), typeof moFolderSize === 'function' && moFolderSize(r) > 1 ? h('span', { class: 'mo-row-n' }, `${moFolderSize(r)} requests`) : null) : h('span', { class: 'pb-row-name' }, r.title),
+      r.mt ? h('span', { class: 'mo-row-mt' }, ...moFolderHead(r, st, () => t.paint()), h('span', { class: 'pb-row-name' }, r.title)) : h('span', { class: 'pb-row-name' }, r.title),
       mxReqStatusBtn(r, () => setTimeout(t.paint, 420)),
       mxAttorneyBtn(r, () => setTimeout(t.paint, 420)),
       h('span', { class: 'mx-dlg' }, mxFace(r.submitter, 'pb-av mx-sb-av'), r.submitter),
