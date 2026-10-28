@@ -254,3 +254,26 @@ function moMattersSeed(d) {
   }
   d.mattersInIntakeV = 1;
 }
+/* a matter is a folder of requests: Vantage renewal already holds two more, and a second Orbis request
+   waits on its own, so Clavia can suggest adding it once Orbis is a matter */
+function moFolderSeed(d) {
+  if (d.folderV === 1) return;
+  const next = () => 'RQ-' + (Math.max(1037, ...d.intake.map(q => +q.id.split('-')[1] || 0)) + 1);
+  const day = (n, h = 10) => { const x = new Date(moDay(n)); x.setHours(h, 0, 0, 0); return x.toISOString(); };
+  const add = (r) => { if (!d.intake.some(q => q.title === r.title)) d.intake.unshift({ deal: null, urgent: false, files: [], triaged: true, ...r, id: next() }); };
+  if (d.intake.some(q => q.id === 'RQ-1029' && q.mt)) {
+    add({ title: 'Vantage wants a 60-day notice period', counterparty: 'Vantage GmbH', type: 'Contract review', team: 'Sales', attorney: 'Roger Bennett', status: 'progress',
+      due: day(4, 17), created: day(-2), updated: day(-1), submitter: 'Sofia Marin', source: 'salesforce', inMt: 'RQ-1029',
+      detail: 'Vantage came back asking for 60 days’ notice to end the contract instead of 30. Can we live with that?',
+      activity: [{ who: 'Sofia Marin', ev: 'submit', what: 'asked legal for this', when: day(-2) }, { who: 'Roger Bennett', what: 'added this to the matter “Vantage renewal: their changes”', when: day(-1) }] });
+    add({ title: 'Can we share usage reports with Vantage?', counterparty: 'Vantage GmbH', type: 'Advice', team: 'Sales', attorney: null, status: 'new',
+      due: day(6, 17), created: day(-1), updated: day(-1), submitter: 'Sofia Marin', source: 'salesforce', inMt: 'RQ-1029',
+      detail: 'Vantage wants monthly usage reports for their teams. Is that fine under our privacy terms?',
+      activity: [{ who: 'Sofia Marin', ev: 'submit', what: 'asked legal for this', when: day(-1) }, { who: 'Clavia', ev: 'clavia', what: 'added this to the matter “Vantage renewal: their changes”, as it is about Vantage', when: day(-1) }] });
+  }
+  add({ title: 'Orbis: can we pay the invoices for on-time deliveries?', counterparty: 'Orbis Supplies Ltd', type: 'Advice', team: 'Finance', attorney: null, status: 'new',
+    due: day(2, 17), created: new Date(Date.now() - 36e5).toISOString(), updated: new Date(Date.now() - 36e5).toISOString(), submitter: 'Tom Becker', source: 'outlook', where: 'legal@lumen.io',
+    detail: 'Finance would like to pay Orbis for the deliveries that arrived on time and keep holding back the rest. Is that safe to do?',
+    activity: [{ who: 'Tom Becker', ev: 'submit', what: 'emailed legal@lumen.io', via: 'outlook', when: new Date(Date.now() - 36e5).toISOString() }] });
+  d.folderV = 1;
+}

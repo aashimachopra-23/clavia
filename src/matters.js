@@ -101,7 +101,7 @@ const moKindIc = (k) => h('span', { class: 'mo-kic', html: k === 'Clavia' || k =
 
 /* draw again where you are: the page keeps its scroll */
 /* on a request that is a matter, the matter's tabs are the request's: Tasks, Documents, Details, Deal Team… */
-const MO_REQ_TAB = { overview: 'summary', tasks: 'mtasks', decisions: 'mdecisions', docs: 'docs', files: 'docs', details: 'details', people: 'team', activity: 'activity', updates: 'activity', chats: 'activity', timeline: 'activity' };
+const MO_REQ_TAB = { overview: 'summary', requests: 'mreqs', tasks: 'mtasks', decisions: 'mdecisions', docs: 'docs', files: 'docs', details: 'details', people: 'team', activity: 'activity', updates: 'activity', chats: 'activity', timeline: 'activity' };
 const moOnRequest = () => state.view === 'intake';
 const moSetTab = (k) => { if (moOnRequest()) MX.intake.tab = MO_REQ_TAB[k] || 'summary'; else MX.matters.tab = k; };
 function moRedraw() {
@@ -931,7 +931,7 @@ function moAttachParts(r, from) {
 /* the two tabs a matter adds */
 function moReqTab(r, which) {
   const m = moAsMatter(r);
-  return which === 'tasks' ? [moTabTasks(m)[0]] : moTabDecisions(m);
+  return which === 'requests' ? moTabRequests(r) : which === 'tasks' ? [moTabTasks(m)[0]] : moTabDecisions(m);
 }
 /* what a matter adds under a tab the request already has */
 function moReqExtra(r, tab) {
@@ -939,7 +939,10 @@ function moReqExtra(r, tab) {
   if (!m) return [];
   if (tab === 'summary') {
     const tasks = moOpenTasks(m).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1).slice(0, 3), dates = moUpcoming(m).slice(0, 3);
-    return [h('section', { class: 'rqv' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, 'Next Tasks'), moAllBtn('All tasks', moTabTo('tasks'))),
+    const inside = moInside(r);
+    return [inside.length ? h('section', { class: 'rqv' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, `Requests in This Matter · ${inside.length + 1}`), moAllBtn('All requests', moTabTo('requests'))),
+        h('div', { class: 'mo-tlist' }, ...inside.slice(0, 3).map(q => moReqRow(q)))) : null,
+      h('section', { class: 'rqv' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, 'Next Tasks'), moAllBtn('All tasks', moTabTo('tasks'))),
         tasks.length ? h('div', { class: 'mo-tlist' }, ...tasks.map(t => moTaskRow(m, t))) : h('p', { class: 'rqp-empty' }, 'No open tasks.')),
       dates.length ? h('section', { class: 'rqv' }, h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, 'Next Dates'), moAllBtn('All dates', moTabTo('details'))), h('div', { class: 'mo-dates' }, ...dates.map(x => moDateRow(x)))) : null];
   }
@@ -951,7 +954,117 @@ function moReqExtra(r, tab) {
 /* Clavia's suggestion on a request that looks big */
 /* requests that look like long work get a "Turn into a Matter" button beside the status; the rest have it in the ⋯ menu */
 function moTurnBtn(r) {
-  if (r.mt || mxClosed(r) || !/\b(owe|owes|owed|claim|claims|court|tribunal|dispute|sue|sued|lawsuit|unfair)\b/i.test(r.title + ' ' + (r.detail || ''))) return null;
+  if (r.mt || r.inMt || mxClosed(r)) return null;
+  const add = moAddBtn(r); if (add) return add;
+  if (!/\b(owe|owes|owed|claim|claims|court|tribunal|dispute|sue|sued|lawsuit|unfair)\b/i.test(r.title + ' ' + (r.detail || ''))) return null;
   return h('button', { class: 'btn mo-turn', type: 'button', 'data-tip': 'This may take a while. A matter adds tasks, dates and decisions.', onclick: () => moFromRequest(r) },
     h('span', { class: 'mo-turn-ic', html: SPARK_ONE }), 'Turn into a Matter');
+}
+
+/* ==================================================================
+   A matter is a folder of requests. The request it started from is
+   the matter itself; other requests join it with r.inMt = its number.
+   They keep working as ordinary requests, and leave the Intake list
+   (search still finds them) so the matter shows as one row.
+================================================================== */
+const moFolderOf = (r) => r && r.inMt ? mxIntake().find(q => q.id === r.inMt && q.mt) || null : null;
+const moInside = (mr) => mxIntake().filter(q => q.inMt === mr.id && q.id !== mr.id);
+const moFolderSize = (mr) => 1 + moInside(mr).length;
+/* the one word that names who a matter is with: "Vantage", "Orbis" */
+function moKeyWord(mr) {
+  const side = (mr.mt?.facts || []).find(f => f[0] === 'Other side')?.[1] || mr.counterparty || mr.title;
+  return side.replace(/[()]/g, ' ').split(/\s+/).find(w => w.length >= 4 && /^[A-Z]/.test(w)) || null;
+}
+/* an open matter this request clearly belongs to: same company, named in it */
+function moFitFor(r) {
+  if (r.mt || r.inMt || mxClosed(r)) return null;
+  const text = [r.title, r.counterparty, r.detail].join(' ');
+  return mxIntake().find(q => q.mt && !mxClosed(q) && q.id !== r.id && (() => { const k = moKeyWord(q); return k && new RegExp('\\b' + k + '\\b', 'i').test(text); })()) || null;
+}
+const moShortName = (mr) => moKeyWord(mr) ? `${moKeyWord(mr)} Matter` : 'the Matter';
+function moAddTo(r, mr) {
+  r.inMt = mr.id; r.updated = mxNow();
+  (r.activity ||= []).push({ who: USER.name, what: `added this to the matter “${mr.title}”`, when: mxNow() });
+  moLog(moAsMatter(mr), 'Matter', `${moMe()} added ${r.id} to this matter`);
+  save(); moRedraw();
+  pbToast(`${r.id} is now part of “${mr.title}”`, { label: 'Undo', run: () => moRemoveFrom(r, true) });
+}
+function moRemoveFrom(r, quiet) {
+  const mr = moFolderOf(r); if (!mr) return;
+  delete r.inMt; r.updated = mxNow();
+  (r.activity ||= []).push({ who: USER.name, what: `took this out of the matter “${mr.title}”`, when: mxNow() });
+  moLog(moAsMatter(mr), 'Matter', `${moMe()} took ${r.id} out of this matter`);
+  save(); moRedraw();
+  if (!quiet) pbToast(`${r.id} is back on its own`);
+}
+/* pick which matter a request joins; Clavia's guess first */
+function moAddPick(r) {
+  const fit = moFitFor(r);
+  const open = mxIntake().filter(q => q.mt && !mxClosed(q) && q.id !== r.id).sort((a, b) => (a === fit ? -1 : b === fit ? 1 : 0));
+  if (!open.length) return pbToast('There are no open matters yet');
+  let to = (fit || open[0]).id;
+  const dlg = moDialog({ title: 'Add to a Matter', sub: `${r.id} keeps its number and stays a request. It shows inside the matter with the others.`,
+    body: () => [moField('Which matter?', h('div', { class: 'mo-tlist' }, ...open.map(q => h('button', { class: 'mo-task mo-pickrow' + (q.id === to ? ' is-on' : ''), type: 'button', onclick: () => { to = q.id; dlg.paint(); } },
+      h('span', { class: 'mo-tick' + (q.id === to ? ' is-on' : ''), html: PB_SVG.check }),
+      h('span', { class: 'mo-task-t' }, h('span', { class: 'mo-task-n' }, q.title),
+        h('span', { class: 'mo-task-s' }, `${q.id} · ${mxPlural(moFolderSize(q), 'request')}${q === fit ? ' · Clavia suggests this one' : ''}`))))))],
+    foot: (close) => [moBtn('Cancel', close), moBtn('Add to Matter', () => { close(); moAddTo(r, mxIntake().find(q => q.id === to)); }, true)] });
+}
+/* the button beside the status when Clavia sees where a request belongs */
+function moAddBtn(r) {
+  const fit = moFitFor(r); if (!fit) return null;
+  return h('button', { class: 'btn mo-turn', type: 'button', 'data-tip': `Looks like part of “${fit.title}”`, onclick: () => moAddTo(r, fit) },
+    h('span', { class: 'mo-turn-ic', html: SPARK_ONE }), `Add to ${moShortName(fit)}`);
+}
+/* "Part of …" under a request's title */
+function moPartOf(r) {
+  const mr = moFolderOf(r); if (!mr) return null;
+  return h('span', { class: 'mo-partof' }, h('span', { class: 'mt-sep' }, '·'), 'Part of ',
+    h('button', { class: 'mx-link', type: 'button', onclick: () => moGo(mr.id, 'requests') }, mr.title));
+}
+/* one row per request in the folder */
+function moReqRow(q, first) {
+  const st = MX_ST.req[q.status] || MX_ST.req.progress;
+  return h('button', { class: 'mo-task mo-rqrow', type: 'button', onclick: () => moGo(q.id, 'overview') },
+    h('span', { class: 'mo-rq-st', style: `color:${st.color}`, 'data-tip': st.label, html: st.svg }),
+    h('span', { class: 'mo-task-t' }, h('span', { class: 'mo-task-n' }, q.title),
+      h('span', { class: 'mo-task-s' }, `${q.id} · from ${q.submitter} · ${st.label}${first ? ' · where it started' : ''}`)),
+    q.attorney ? h('span', { class: 'mo-rq-who' }, mxFace(q.attorney, 'pb-av'), q.attorney.split(' ')[0]) : h('span', { class: 'mo-rq-who mo-faint' }, 'Unassigned'));
+}
+function moTabRequests(r) {
+  const inside = moInside(r);
+  const others = mxIntake().filter(q => !q.mt && !q.inMt && !mxClosed(q));
+  return [h('section', { class: 'rqv' },
+    h('div', { class: 'rqv-hrow' }, h('h3', { class: 'rqv-h' }, `Requests in This Matter · ${inside.length + 1}`),
+      others.length && !mxClosed(r) ? moAllBtn('Add a Request', () => moAddOne(r)) : null),
+    h('div', { class: 'mo-tlist' }, moReqRow(r, true), ...inside.map(q => moReqRow(q))),
+    inside.length ? null : h('p', { class: 'rqp-empty' }, 'Only the request it started from so far. When a new request is about the same thing, add it here and Clavia keeps it all together.'))];
+}
+/* from the matter: pick an open request to bring in, the ones about the same company first */
+function moAddOne(mr) {
+  const k = moKeyWord(mr), near = (q) => k && new RegExp('\\b' + k + '\\b', 'i').test([q.title, q.counterparty, q.detail].join(' '));
+  const list = mxIntake().filter(q => !q.mt && !q.inMt && !mxClosed(q)).sort((a, b) => near(b) - near(a)).slice(0, 8);
+  let pick = list[0]?.id;
+  const dlg = moDialog({ title: 'Add a Request', sub: `It keeps its number and its owner, and shows inside “${mr.title}”.`,
+    body: () => [h('div', { class: 'mo-tlist' }, ...list.map(q => h('button', { class: 'mo-task mo-pickrow' + (q.id === pick ? ' is-on' : ''), type: 'button', onclick: () => { pick = q.id; dlg.paint(); } },
+      h('span', { class: 'mo-tick' + (q.id === pick ? ' is-on' : ''), html: PB_SVG.check }),
+      h('span', { class: 'mo-task-t' }, h('span', { class: 'mo-task-n' }, q.title), h('span', { class: 'mo-task-s' }, `${q.id} · from ${q.submitter}${near(q) ? ' · Clavia suggests this one' : ''}`)))))],
+    foot: (close) => [moBtn('Cancel', close), moBtn('Add to Matter', () => { close(); moAddTo(mxIntake().find(q => q.id === pick), mr); }, true)] });
+}
+/* "Ask about …" on a matter answers from the whole folder */
+function moAskAnswer(r, q) {
+  const m = moAsMatter(r), first = (s) => s.split(' ')[0];
+  const open = moOpenTasks(m).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1);
+  const late = open.filter(t => t.due && moDays(t.due) < 0), week = open.filter(t => t.due && moDays(t.due) >= 0 && moDays(t.due) <= 7);
+  const taskLine = (t) => `${t.t} (${t.who === USER.name ? 'you' : first(t.who)}, ${moDays(t.due) < 0 ? 'overdue' : moIn(t.due).toLowerCase()})`;
+  const dates = moUpcoming(m), dec = m.decisions || [], inside = moInside(r);
+  const left = m.money ? m.money.budget - m.money.billed - m.money.okd - m.money.expected : null;
+  const say = {
+    due: () => late.length || week.length ? `${[...late, ...week].length === 1 ? 'One thing needs doing' : `${[...late, ...week].length} things need doing`} soon: ${[...late, ...week].slice(0, 3).map(taskLine).join('; ')}.${dates[0] ? ` Next date: ${dates[0].what}, ${moIn(dates[0].d).toLowerCase()}.` : ''}` : `Nothing is due this week.${dates[0] ? ` The next date is ${dates[0].what}, ${moIn(dates[0].d).toLowerCase()}.` : ''}`,
+    decided: () => dec.length ? `${mxPlural(dec.length, 'decision')} so far. Latest: ${dec[dec.length - 1].what}, by ${first(dec[dec.length - 1].who)}.` : 'No decisions are recorded on this matter yet.',
+    money: () => m.money ? `Budget ${moMoney(m.money.budget)}: ${moMoney(m.money.billed)} billed, ${moMoney(m.money.expected)} expected, so ${moMoney(left)} is left.` : 'No budget is set for this matter.',
+    reqs: () => inside.length ? `${mxPlural(inside.length + 1, 'request')} in this matter: ${[r, ...inside].map(x => `${x.id} ${x.title} (${(MX_ST.req[x.status] || MX_ST.req.progress).label.toLowerCase()})`).join('; ')}.` : `Only ${r.id}, the request it started from.`,
+  };
+  const k = /due|when|date|week|today|late|overdue|next|task/i.test(q) ? 'due' : /decid|decision|agree|agreed/i.test(q) ? 'decided' : /money|budget|cost|spend|spent|bill|fee/i.test(q) ? 'money' : /request/i.test(q) ? 'reqs' : null;
+  return k ? say[k]() : `${m.where || r.title} ${say.due()} ${dec.length ? say.decided() : ''} ${inside.length ? say.reqs() : ''}`.replace(/\s+/g, ' ').trim();
 }

@@ -507,3 +507,17 @@ button.mo-frow:hover .mo-fn { text-decoration: underline; text-underline-offset:
 .rqp-body[data-tab="team"] > .rqv { margin-top: 26px; }
 .rqv > .rqp-addf.mo-addtask[hidden] { display: none; }
 .mo-row-mt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; } .mo-row-mt .pb-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; } .mo-row-mt .mo-mt-chip { flex: none; margin: 0; }
+/* a matter is a folder of requests */
+.mo-row-n { flex: none; font-size: 12px; color: var(--text-faint); white-space: nowrap; }
+.mo-partof { display: inline-flex; align-items: center; white-space: nowrap; }
+.mo-partof .mx-link { margin-left: 4px; }
+.mo-rqrow, .mo-pickrow { appearance: none; width: 100%; background: none; border: 0; border-top: 1px solid var(--line-soft); font: inherit; text-align: left; cursor: pointer; color: inherit; }
+.mo-rqrow:hover, .mo-pickrow:hover { background: var(--tint); }
+.mo-rq-st { display: grid; flex: none; width: 16px; height: 16px; }
+.mo-rq-st svg { width: 16px; height: 16px; }
+.mo-rq-who { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.mo-rq-who .pb-av { width: 20px; height: 20px; }
+.mo-pickrow { padding-left: 4px; padding-right: 4px; }
+.mo-pickrow.is-on .mo-task-n { font-weight: 500; }
+/* a matter has 8 tabs; a little tighter so Activity stays in view (requests keep Intake's spacing) */
+.rqp-left .br-tabs:has(.br-tab:nth-of-type(8)) { gap: 9px; }

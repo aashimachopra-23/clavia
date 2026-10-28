@@ -356,6 +356,8 @@ function mxIntake() {
   if (typeof moIntakeSeed === 'function') { const had = d.orbisRq, tidy = d.tidyV; moIntakeSeed(d); if (!had || tidy !== 1) save(); }
   /* the demo matters, as requests that are matters (matters-data.js) */
   if (typeof moMattersSeed === 'function' && d.mattersInIntakeV !== 1) { moMattersSeed(d); save(); }
+  /* two more requests inside Vantage renewal, and one about Orbis waiting on its own (matters-data.js) */
+  if (typeof moFolderSeed === 'function' && d.folderV !== 1) { moFolderSeed(d); save(); }
   /* the requests Roger keeps an eye on without having them */
   if (d.followV !== 1) { for (const r of d.intake) if (['RQ-1047', 'RQ-1043'].includes(r.id)) r.followed = true; d.followV = 1; save(); }
   for (const r of d.intake) {
@@ -1700,7 +1702,7 @@ function intakePage(r, opts = {}) {
   let tab = MX.intake.tab && ['summary', 'details', 'terms', 'sign', 'team', 'activity', 'docs', 'issues', 'comments', 'mtasks', 'mdecisions'].includes(MX.intake.tab) ? MX.intake.tab : 'summary';
   /* the document whose round is open in the Documents tab, if any */
   let reviewing = MX.intake.review || null; MX.intake.review = null;
-  if ((tab === 'terms' && !hasTerms) || (tab === 'sign' && !(hasSign && INTAKE_FX.approvals)) || (tab === 'issues' && !hasIssues) || ((tab === 'mtasks' || tab === 'mdecisions') && !r.mt)) tab = 'summary';
+  if ((tab === 'terms' && !hasTerms) || (tab === 'sign' && !(hasSign && INTAKE_FX.approvals)) || (tab === 'issues' && !hasIssues) || ((tab === 'mtasks' || tab === 'mdecisions' || tab === 'mreqs') && !r.mt)) tab = 'summary';
   const ICON = (p, w = 16) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 
   /* ── the left: a page about the request ── */
@@ -1738,6 +1740,7 @@ function intakePage(r, opts = {}) {
     h('span', { class: 'rqp-id' }, r.id), r.mt ? h('span', { class: 'mo-chip mo-mt-chip' }, 'Matter') : null, h('span', { class: 'mt-sep' }, '·'),
     h('span', { class: 'rqp-from' }, `From ${r.submitter}`, ...(r.source ? [' via ', h('img', { class: 'rqp-via', src: brandSrc(r.source), alt: '' }), mxChannel(r).name] : [])), h('span', { class: 'mt-sep' }, '·'),
     h('span', { class: 'rqp-due' }, 'Due ', mxDue(r.due, r.status === 'done')),
+    r.inMt && typeof moPartOf === 'function' ? moPartOf(r) : null,
     waitEl);
   const stageBtn = mxReqStatusBtn(r);
   stageBtn.classList.add('rqp-stage'); stageBtn._paint();
@@ -1745,7 +1748,7 @@ function intakePage(r, opts = {}) {
 
   /* the tabs: one rule that travels under the one you are on */
   /* a request that is a matter also has Tasks and Decisions (matters.js) */
-  const TABS = [['summary', 'Overview'], r.mt && ['mtasks', 'Tasks'], ['docs', 'Documents'], mxWComments(r).length && ['comments', 'Comments'], r.mt && ['mdecisions', 'Decisions'], hasIssues && ['issues', 'Issues'], INTAKE_FX.approvals && hasSign && ['sign', mxApprovalRules(r).length ? 'Approvals' : 'Signatures'], ['details', 'Details'], hasTerms && ['terms', 'Key Terms'], ['team', 'Deal Team'], ['activity', 'Activity']].filter(Boolean);
+  const TABS = [['summary', 'Overview'], r.mt && ['mreqs', 'Requests'], r.mt && ['mtasks', 'Tasks'], ['docs', 'Documents'], mxWComments(r).length && ['comments', 'Comments'], r.mt && ['mdecisions', 'Decisions'], hasIssues && ['issues', 'Issues'], INTAKE_FX.approvals && hasSign && ['sign', mxApprovalRules(r).length ? 'Approvals' : 'Signatures'], ['details', 'Details'], hasTerms && ['terms', 'Key Terms'], ['team', 'Deal Team'], ['activity', 'Activity']].filter(Boolean);
   const ink = h('span', { class: 'br-ink', 'aria-hidden': 'true' });
   const tabBtns = TABS.map(([k, label]) => h('button', { class: 'br-tab', type: 'button', role: 'tab', 'data-k': k, onclick: () => setTab(k) },
     label));
@@ -2732,7 +2735,7 @@ function intakePage(r, opts = {}) {
   const activity = () => { paintLog(); paintCtx(); return [composer, log]; };
 
   const paintBody = () => {
-    body.replaceChildren(...[].concat(tab === 'mtasks' ? moReqTab(r, 'tasks') : tab === 'mdecisions' ? moReqTab(r, 'decisions') : tab === 'summary' ? summary() : tab === 'details' ? details() : tab === 'terms' ? terms() : tab === 'sign' ? approvals() : tab === 'team' ? team() : tab === 'docs' ? documents() : tab === 'comments' ? commentsTab() : tab === 'issues' ? issues() : activity(),
+    body.replaceChildren(...[].concat(tab === 'mreqs' ? moReqTab(r, 'requests') : tab === 'mtasks' ? moReqTab(r, 'tasks') : tab === 'mdecisions' ? moReqTab(r, 'decisions') : tab === 'summary' ? summary() : tab === 'details' ? details() : tab === 'terms' ? terms() : tab === 'sign' ? approvals() : tab === 'team' ? team() : tab === 'docs' ? documents() : tab === 'comments' ? commentsTab() : tab === 'issues' ? issues() : activity(),
       r.mt && typeof moReqExtra === 'function' ? moReqExtra(r, tab) : []).filter(v => v != null && v !== false));
     body.dataset.tab = tab;
     dock.hidden = tab === 'activity' || tab === 'comments';
@@ -2748,7 +2751,7 @@ function intakePage(r, opts = {}) {
     openSession({ id: 'rq-ask-' + r.id + '-' + Date.now(), label: r.title, meta: 'now', people: [{ name: USER.name, online: true, owner: true }],
       messages: [{ role: 'user', text: q },
         { role: 'bot', cites: null, steps: [{ source: 'request', query: 'Read ' + r.id, count: docs.length ? mxPlural(docs.length, 'document') : 'no document' }],
-          answer: s.para,
+          answer: r.mt && typeof moAskAnswer === 'function' ? moAskAnswer(r, q) : s.para,
           suggest: [s.fp.action.label, `Draft a reply to ${first}`] }] });
   };
   /* a message to the requester goes out where they asked: Outlook or Teams, never a Clavia inbox they would have to visit */
@@ -2776,7 +2779,10 @@ function intakePage(r, opts = {}) {
   const more = h('button', { class: 'br-dots', type: 'button', 'aria-label': 'More actions', 'data-tip': 'More Actions', html: PB_SVG.dots,
     onclick: (e) => { e.stopPropagation(); mxGlyphs(); menu(more, [
       ...(INTAKE_FX.channel && r.submitter !== USER.name ? [{ label: `Message ${first}`, icon: 'ask', run: () => messageRequester() }] : []),
-      typeof moFromRequest === 'function' && !r.mt && !mxClosed(r) ? { label: 'Turn into a Matter', icon: 'open', run: () => moFromRequest(r) } : null,
+      typeof moFromRequest === 'function' && !r.mt && !r.inMt && !mxClosed(r) ? { label: 'Turn into a Matter', icon: 'open', run: () => moFromRequest(r) } : null,
+      /* a request can sit inside a matter, with the others on the same work (matters.js) */
+      typeof moAddPick === 'function' && !r.mt && !r.inMt && !mxClosed(r) && mxIntake().some(q => q.mt && !mxClosed(q)) ? { label: 'Add to a Matter', icon: 'open', run: () => moAddPick(r) } : null,
+      r.inMt && typeof moRemoveFrom === 'function' ? { label: 'Remove from Matter', icon: 'open', run: () => moRemoveFrom(r) } : null,
       /* a matter is handed over with a brief, and closed with how it ended and what we learned (matters.js) */
       r.mt && !mxClosed(r) ? { label: 'Hand Over', icon: 'share', run: () => moHandOver(moAsMatter(r)) } : null,
       r.mt && !mxClosed(r) ? { label: 'Close Matter', icon: 'use', run: () => moClose(moAsMatter(r)) } : null,
@@ -4107,14 +4113,15 @@ function intakeView() {
     tabs: TABS, tabOf: TABOF,
     /* the critical fields as dropdowns in place of tabs (INTAKE_FX.drops) */
     drops: INTAKE_FX.drops ? ['stage', 'attorney', 'submitter', 'source', 'due'] : null,
-    items: everything,
+    /* requests inside a matter show as part of it, not as rows of their own; search still finds them */
+    items: () => (st.find || '').trim() ? list : list.filter(r => !(r.inMt && list.some(q => q.id === r.inMt && q.mt))),
     text: (r) => [r.id, r.title, r.deal, r.counterparty, r.type, r.team, r.submitter, r.attorney].join(' '),
     /* narrowing the list without leaving it */
     filters: FILTERS,
     val: (r, k) => k === 'created' ? r.created : k === 'delegate' ? (mxDelegate(r) || '~') : k === 'source' ? (r.source ? mxChannel(r).name : 'Manual') : k === 'comments' ? mxWActive(r).length : k === 'stage' ? (order[r.status] ?? 1) : k === 'due' ? r.due : k === 'id' ? r.id : (r[k] || '~').toLowerCase(),
     cells: (r) => INTAKE_FX.columns === 'v2' ? [
       h('span', { class: 'mx-req-id' }, r.id),
-      r.mt ? h('span', { class: 'mo-row-mt' }, h('span', { class: 'pb-row-name' }, r.title), h('span', { class: 'mo-chip mo-mt-chip' }, 'Matter')) : h('span', { class: 'pb-row-name' }, r.title),
+      r.mt ? h('span', { class: 'mo-row-mt' }, h('span', { class: 'pb-row-name' }, r.title), h('span', { class: 'mo-chip mo-mt-chip' }, 'Matter'), typeof moFolderSize === 'function' && moFolderSize(r) > 1 ? h('span', { class: 'mo-row-n' }, `${moFolderSize(r)} requests`) : null) : h('span', { class: 'pb-row-name' }, r.title),
       mxReqStatusBtn(r, () => setTimeout(t.paint, 420)),
       mxAttorneyBtn(r, () => setTimeout(t.paint, 420)),
       h('span', { class: 'mx-dlg' }, mxFace(r.submitter, 'pb-av mx-sb-av'), r.submitter),
