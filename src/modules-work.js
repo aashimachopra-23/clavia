@@ -358,6 +358,8 @@ function mxIntake() {
   if (typeof moMattersSeed === 'function' && d.mattersInIntakeV !== 1) { moMattersSeed(d); save(); }
   /* two more requests inside Vantage renewal, and one about Orbis waiting on its own (matters-data.js) */
   if (typeof moFolderSeed === 'function' && d.folderV !== 1) { moFolderSeed(d); save(); }
+  if (typeof moFolderSeed2 === 'function' && d.folderV2 !== 1) { moFolderSeed2(d); save(); }
+  if (typeof moNamesSeed === 'function' && d.namesV !== 1) { moNamesSeed(d); save(); }
   /* the requests Roger keeps an eye on without having them */
   if (d.followV !== 1) { for (const r of d.intake) if (['RQ-1047', 'RQ-1043'].includes(r.id)) r.followed = true; d.followV = 1; save(); }
   for (const r of d.intake) {
@@ -1203,7 +1205,8 @@ function mxReqStatusBtn(r, after) {
   const btn = h('button', { class: 'pb-st mx-st mx-st-btn', type: 'button', 'data-tip': 'Change Status', 'aria-haspopup': 'menu',
     onclick: (e) => { e.stopPropagation(); mxReqStatusMenu(btn, r, (k) => { paint(); btn.classList.remove('is-set'); void btn.offsetWidth; btn.classList.add('is-set'); after?.(k); }); } });
   const paint = () => { const v = MX_ST.req[r.status] || MX_ST.req.progress; btn.style.setProperty('--st', v.color);
-    btn.replaceChildren(h('span', { class: 'pb-st-ic', html: v.svg }), v.label,
+    const on = r.mt && r.status === 'waiting' && btn.classList.contains('rqp-stage') && INTAKE_FX.channel && mxWhoseMove(r) === 'Requester' ? ` on ${r.submitter.split(' ')[0]}` : '';
+    btn.replaceChildren(h('span', { class: 'pb-st-ic', html: v.svg }), v.label + on,
       ...(btn.classList.contains('rqp-stage') ? [h('span', { class: 'rqp-stage-chev', html: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>' })] : [])); };
   paint();
   btn._paint = paint;
@@ -1707,9 +1710,9 @@ function intakePage(r, opts = {}) {
 
   /* ── the left: a page about the request ── */
   const title = h('h1', { class: 'br-title rqp-title', contenteditable: 'true', spellcheck: 'false', 'data-empty': 'Untitled request',
-    oninput: () => { r.title = title.textContent.trim() || 'Untitled request'; r.updated = mxNow(); save(); },
+    oninput: () => { const v = title.textContent.trim(); if (r.mt) r.mt.name = v || r.title; else r.title = v || 'Untitled request'; r.updated = mxNow(); save(); },
     onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); title.blur(); } } });
-  title.textContent = r.title;
+  title.textContent = r.mt && typeof moName === 'function' ? moName(r) : r.title;
 
   /* where it stands, in one line: status and who has it are the two things you change from here */
   /* the path this kind of request takes, each step a place you can move it to */
@@ -1736,8 +1739,9 @@ function intakePage(r, opts = {}) {
   const waitEl = h('span', { class: 'rqp-wait-w' }, h('span', { class: 'mt-sep' }, '·'), h('span', { class: 'rqp-wait' }, `Waiting on ${first}`));
   const paintWait = () => { waitEl.hidden = !(INTAKE_FX.channel && mxWhoseMove(r) === 'Requester'); };
   paintWait();
-  const meta = h('div', { class: 'br-meta rqp-meta' },
-    h('span', { class: 'rqp-id' }, r.id), r.mt ? h('span', { class: 'mo-chip mo-mt-chip' }, 'Matter') : null, h('span', { class: 'mt-sep' }, '·'),
+  /* a matter: one quiet line (its number, how many requests it holds, when it's due); who it's waiting on is in the status */
+  const meta = r.mt && typeof moHeadLine === 'function' ? moHeadLine(r) : h('div', { class: 'br-meta rqp-meta' },
+    h('span', { class: 'rqp-id' }, r.id), h('span', { class: 'mt-sep' }, '·'),
     h('span', { class: 'rqp-from' }, `From ${r.submitter}`, ...(r.source ? [' via ', h('img', { class: 'rqp-via', src: brandSrc(r.source), alt: '' }), mxChannel(r).name] : [])), h('span', { class: 'mt-sep' }, '·'),
     h('span', { class: 'rqp-due' }, 'Due ', mxDue(r.due, r.status === 'done')),
     r.inMt && typeof moPartOf === 'function' ? moPartOf(r) : null,
@@ -2804,7 +2808,7 @@ function intakePage(r, opts = {}) {
         embed ? h('span', {}) : h('button', { class: 'br-back', type: 'button', onclick: () => { mxClose('intake'); go('intake'); } },
           h('span', { class: 'br-back-a', html: ICON('<path d="M19 12H5M11 6l-6 6 6 6"/>', 15) }), INTAKE_NAME),
         h('div', { class: 'br-top-r' }, typeof moTurnBtn === 'function' ? moTurnBtn(r) : null, stageBtn, more)),
-      title, meta, controls, tabs, body),
+      r.mt && typeof moTitleRow === 'function' ? moTitleRow(title) : title, meta, controls, tabs, body),
     dock);
   /* once the tabs are holding at the top, a soft edge keeps what slides under from merging into them */
   const leftIn = left.querySelector('.rqp-left-in');
@@ -4117,13 +4121,13 @@ function intakeView() {
     under: (r, rowEl) => r.mt && st.openMt?.[r.id] && typeof moInside === 'function' ? moInside(r).map(q => { const el = rowEl(q); el.classList.add('mo-sub-row'); return el; }) : [],
     /* requests inside a matter show as part of it, not as rows of their own; search still finds them */
     items: () => (st.find || '').trim() ? list : list.filter(r => !(r.inMt && list.some(q => q.id === r.inMt && q.mt))),
-    text: (r) => [r.id, r.title, r.deal, r.counterparty, r.type, r.team, r.submitter, r.attorney].join(' '),
+    text: (r) => [r.id, r.title, r.mt?.name, r.deal, r.counterparty, r.type, r.team, r.submitter, r.attorney].join(' '),
     /* narrowing the list without leaving it */
     filters: FILTERS,
     val: (r, k) => k === 'created' ? r.created : k === 'delegate' ? (mxDelegate(r) || '~') : k === 'source' ? (r.source ? mxChannel(r).name : 'Manual') : k === 'comments' ? mxWActive(r).length : k === 'stage' ? (order[r.status] ?? 1) : k === 'due' ? r.due : k === 'id' ? r.id : (r[k] || '~').toLowerCase(),
     cells: (r) => INTAKE_FX.columns === 'v2' ? [
-      h('span', { class: 'mx-req-id' }, r.id),
-      r.mt ? h('span', { class: 'mo-row-mt' }, ...moFolderHead(r, st, () => t.paint()), h('span', { class: 'pb-row-name' }, r.title)) : h('span', { class: 'pb-row-name' }, r.title),
+      r.mt && typeof moFoldId === 'function' ? moFoldId(r, st, () => t.paint()) : h('span', { class: 'mx-req-id' }, r.id),
+      r.mt ? h('span', { class: 'mo-row-mt' }, ...moFolderHead(r), h('span', { class: 'pb-row-name' }, typeof moName === 'function' ? moName(r) : r.title)) : h('span', { class: 'pb-row-name' }, r.title),
       mxReqStatusBtn(r, () => setTimeout(t.paint, 420)),
       mxAttorneyBtn(r, () => setTimeout(t.paint, 420)),
       h('span', { class: 'mx-dlg' }, mxFace(r.submitter, 'pb-av mx-sb-av'), r.submitter),

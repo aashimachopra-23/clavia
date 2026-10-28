@@ -265,15 +265,53 @@ function moFolderSeed(d) {
     add({ title: 'Vantage wants a 60-day notice period', counterparty: 'Vantage GmbH', type: 'Contract review', team: 'Sales', attorney: 'Roger Bennett', status: 'progress',
       due: day(4, 17), created: day(-2), updated: day(-1), submitter: 'Sofia Marin', source: 'salesforce', inMt: 'RQ-1029',
       detail: 'Vantage came back asking for 60 days’ notice to end the contract instead of 30. Can we live with that?',
-      activity: [{ who: 'Sofia Marin', ev: 'submit', what: 'asked legal for this', when: day(-2) }, { who: 'Roger Bennett', what: 'added this to the matter “Vantage renewal: their changes”', when: day(-1) }] });
+      activity: [{ who: 'Sofia Marin', ev: 'submit', what: 'asked legal for this', when: day(-2) }, { who: 'Roger Bennett', what: 'added this to the matter “Vantage renewal”', when: day(-1) }] });
     add({ title: 'Can we share usage reports with Vantage?', counterparty: 'Vantage GmbH', type: 'Advice', team: 'Sales', attorney: null, status: 'new',
       due: day(6, 17), created: day(-1), updated: day(-1), submitter: 'Sofia Marin', source: 'salesforce', inMt: 'RQ-1029',
       detail: 'Vantage wants monthly usage reports for their teams. Is that fine under our privacy terms?',
-      activity: [{ who: 'Sofia Marin', ev: 'submit', what: 'asked legal for this', when: day(-1) }, { who: 'Clavia', ev: 'clavia', what: 'added this to the matter “Vantage renewal: their changes”, as it is about Vantage', when: day(-1) }] });
+      activity: [{ who: 'Sofia Marin', ev: 'submit', what: 'asked legal for this', when: day(-1) }, { who: 'Clavia', ev: 'clavia', what: 'added this to the matter “Vantage renewal”, as it is about Vantage', when: day(-1) }] });
   }
   add({ title: 'Orbis: can we pay the invoices for on-time deliveries?', counterparty: 'Orbis Supplies Ltd', type: 'Advice', team: 'Finance', attorney: null, status: 'new',
     due: day(2, 17), created: new Date(Date.now() - 36e5).toISOString(), updated: new Date(Date.now() - 36e5).toISOString(), submitter: 'Tom Becker', source: 'outlook', where: 'legal@lumen.io',
     detail: 'Finance would like to pay Orbis for the deliveries that arrived on time and keep holding back the rest. Is that safe to do?',
     activity: [{ who: 'Tom Becker', ev: 'submit', what: 'emailed legal@lumen.io', via: 'outlook', when: new Date(Date.now() - 36e5).toISOString() }] });
   d.folderV = 1;
+}
+/* every demo matter holds more than the request it started from, so each folder has something to open */
+function moFolderSeed2(d) {
+  if (d.folderV2 === 1) return;
+  const next = () => 'RQ-' + (Math.max(1037, ...d.intake.map(q => +q.id.split('-')[1] || 0)) + 1);
+  const day = (n, h = 10) => { const x = new Date(moDay(n)); x.setHours(h, 0, 0, 0); return x.toISOString(); };
+  const into = (mid, r) => {
+    const m = d.intake.find(q => q.id === mid && q.mt);
+    if (!m || d.intake.some(q => q.title === r.title)) return;
+    d.intake.unshift({ deal: null, urgent: false, files: [], triaged: true, ...r, id: next(), inMt: mid, counterparty: r.counterparty || m.counterparty || null,
+      created: day(r.ago), updated: day(r.ago + 1),
+      activity: [{ who: r.submitter, ev: 'submit', what: 'asked legal for this', when: day(r.ago) },
+        { who: r.attorney || 'Clavia', ...(r.attorney ? {} : { ev: 'clavia' }), what: `added this to the matter “${MO_NAMES[mid]?.[0] || m.mt.name || m.title}”`, when: day(r.ago + 1) }] });
+  };
+  into('RQ-1027', { title: 'Can we give J. Rowe a reference?', type: 'Advice', team: 'HR', attorney: 'James Whitfield', status: 'progress', due: day(5, 17), ago: -4,
+    submitter: 'Hannah Lee', source: 'teams', detail: 'J. Rowe’s new employer asked us for a reference. What can we safely say while the claim is open?' });
+  into('RQ-0990', { title: 'Lumin Tech is using a logo like ours', type: 'Advice', team: 'Partnerships', attorney: 'Elena Petrova', status: 'progress', due: day(8, 17), ago: -9,
+    submitter: 'Priya Shah', source: 'teams', counterparty: 'Lumin Tech Pvt Ltd', detail: 'A partner in India sent screenshots of Lumin Tech’s website using a logo very close to ours.' });
+  into('RQ-0990', { title: 'Register “Lumen” in Singapore too?', type: 'Advice', team: 'Partnerships', attorney: null, status: 'new', due: day(12, 17), ago: -2,
+    submitter: 'Priya Shah', source: null, counterparty: 'Lumin Tech Pvt Ltd', detail: 'We launch in Singapore next quarter. Should we file there while the India case is running?' });
+  into('RQ-1031', { title: 'Can Ironclad store our stock for 3 more months?', type: 'Contract review', team: 'Procurement', attorney: 'Matt Rivera', status: 'progress', due: day(3, 17), ago: -3,
+    submitter: 'Tom Becker', source: 'outlook', counterparty: 'Ironclad Logistics', detail: 'Ironclad offered to extend storage to the end of March at the same rate. Does the agreement allow it?' });
+  into('RQ-1033', { title: 'Brindle Health asks where our servers are', type: 'Privacy', team: 'Sales', attorney: null, status: 'new', due: day(4, 17), ago: -1,
+    submitter: 'Daniel Okafor', source: 'slack', counterparty: 'Brindle Health', detail: 'Their security team wants to know which countries we store patient data in before they sign.' });
+  d.folderV2 = 1;
+}
+/* each demo matter has its own short name; the request it started from keeps a request's title */
+const MO_NAMES = { 'RQ-1029': ['Vantage renewal', 'Review Vantage’s changes to our contract'], 'RQ-1027': ['J. Rowe employment claim', 'Former employee J. Rowe has made a claim'],
+  'RQ-0990': ['“Lumen” trade mark in India', 'Lumin Tech wants to register “Lumen” in India'], 'RQ-1031': ['Ironclad warehousing', 'New warehousing agreement with Ironclad'],
+  'RQ-1033': ['Brindle Health data review', 'Brindle Health wants a data protection review'] };
+function moNamesSeed(d) {
+  if (d.namesV === 1) return;
+  const seeded = Object.fromEntries(moSeed().map(m => [MO_REQ_OF[m.id]?.[0], m.title]));
+  for (const r of d.intake) {
+    if (r.mt && MO_NAMES[r.id] && !r.mt.name) { r.mt.name = MO_NAMES[r.id][0]; if (r.title === seeded[r.id]) r.title = MO_NAMES[r.id][1]; }
+    else if (r.mt && !r.mt.name) r.mt.name = r.title;
+  }
+  d.namesV = 1;
 }

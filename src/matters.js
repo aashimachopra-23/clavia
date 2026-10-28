@@ -416,7 +416,7 @@ function moFromRequest(r) {
           where: `${r.title}. Clavia keeps this up to date as emails, files and tasks come in.` });
       base.type = f.type; base.private = f.priv;
       moAttachParts(r, base);
-      if (f.name.trim() && f.name.trim() !== r.title) r.title = f.name.trim();
+      if (f.name.trim()) r.mt.name = f.name.trim();
       r.stage = 1; r.attorney ||= f.owner; if (r.status === 'new') r.status = 'progress';
       const m = moAsMatter(r);
       conflicts.forEach((c, i) => { if (f.out[i]) { m.keptOut.push({ who: c.who, why: `Used to work at ${c.org.replace(/ Ltd$/, '')} ${c.when}`, by: 'Clavia', when: mxNow() });
@@ -901,7 +901,7 @@ function moAsMatter(r) {
   const p = r.mt, m = {};
   const own = (key, get, set) => Object.defineProperty(m, key, { enumerable: true, get, set: set || (() => {}) });
   own('id', () => r.id);
-  own('title', () => r.title, (v) => { r.title = v; });
+  own('title', () => p.name || r.title, (v) => { p.name = v; });
   own('owner', () => r.attorney || null, (v) => { r.attorney = v; });
   own('asked', () => [r.submitter, r.team || '']);
   own('source', () => r.source || 'manual');
@@ -967,6 +967,8 @@ function moTurnBtn(r) {
    They keep working as ordinary requests, and leave the Intake list
    (search still finds them) so the matter shows as one row.
 ================================================================== */
+/* a matter's own short name; the request it started from keeps its title */
+const moName = (r) => r?.mt?.name || r?.title || '';
 const moFolderOf = (r) => r && r.inMt ? mxIntake().find(q => q.id === r.inMt && q.mt) || null : null;
 const moInside = (mr) => mxIntake().filter(q => q.inMt === mr.id && q.id !== mr.id);
 const moFolderSize = (mr) => 1 + moInside(mr).length;
@@ -984,15 +986,15 @@ function moFitFor(r) {
 const moShortName = (mr) => moKeyWord(mr) ? `${moKeyWord(mr)} Matter` : 'the Matter';
 function moAddTo(r, mr) {
   r.inMt = mr.id; r.updated = mxNow();
-  (r.activity ||= []).push({ who: USER.name, what: `added this to the matter “${mr.title}”`, when: mxNow() });
+  (r.activity ||= []).push({ who: USER.name, what: `added this to the matter “${moName(mr)}”`, when: mxNow() });
   moLog(moAsMatter(mr), 'Matter', `${moMe()} added ${r.id} to this matter`);
   save(); moRedraw();
-  pbToast(`${r.id} is now part of “${mr.title}”`, { label: 'Undo', run: () => moRemoveFrom(r, true) });
+  pbToast(`${r.id} is now part of “${moName(mr)}”`, { label: 'Undo', run: () => moRemoveFrom(r, true) });
 }
 function moRemoveFrom(r, quiet) {
   const mr = moFolderOf(r); if (!mr) return;
   delete r.inMt; r.updated = mxNow();
-  (r.activity ||= []).push({ who: USER.name, what: `took this out of the matter “${mr.title}”`, when: mxNow() });
+  (r.activity ||= []).push({ who: USER.name, what: `took this out of the matter “${moName(mr)}”`, when: mxNow() });
   moLog(moAsMatter(mr), 'Matter', `${moMe()} took ${r.id} out of this matter`);
   save(); moRedraw();
   if (!quiet) pbToast(`${r.id} is back on its own`);
@@ -1006,21 +1008,21 @@ function moAddPick(r) {
   const dlg = moDialog({ title: 'Add to a Matter', sub: `${r.id} keeps its number and stays a request. It shows inside the matter with the others.`,
     body: () => [moField('Which matter?', h('div', { class: 'mo-tlist' }, ...open.map(q => h('button', { class: 'mo-task mo-pickrow' + (q.id === to ? ' is-on' : ''), type: 'button', onclick: () => { to = q.id; dlg.paint(); } },
       h('span', { class: 'mo-tick' + (q.id === to ? ' is-on' : ''), html: PB_SVG.check }),
-      h('span', { class: 'mo-task-t' }, h('span', { class: 'mo-task-n' }, q.title),
+      h('span', { class: 'mo-task-t' }, h('span', { class: 'mo-task-n' }, moName(q)),
         h('span', { class: 'mo-task-s' }, `${q.id} · ${mxPlural(moFolderSize(q), 'request')}${q === fit ? ' · Clavia suggests this one' : ''}`))))))],
     foot: (close) => [moBtn('Cancel', close), moBtn('Add to Matter', () => { close(); moAddTo(r, mxIntake().find(q => q.id === to)); }, true)] });
 }
 /* the button beside the status when Clavia sees where a request belongs */
 function moAddBtn(r) {
   const fit = moFitFor(r); if (!fit) return null;
-  return h('button', { class: 'btn mo-turn', type: 'button', 'data-tip': `Looks like part of “${fit.title}”`, onclick: () => moAddTo(r, fit) },
+  return h('button', { class: 'btn mo-turn', type: 'button', 'data-tip': `Looks like part of “${moName(fit)}”`, onclick: () => moAddTo(r, fit) },
     h('span', { class: 'mo-turn-ic', html: SPARK_ONE }), `Add to ${moShortName(fit)}`);
 }
 /* "Part of …" under a request's title */
 function moPartOf(r) {
   const mr = moFolderOf(r); if (!mr) return null;
   return h('span', { class: 'mo-partof' }, h('span', { class: 'mt-sep' }, '·'), 'Part of ',
-    h('button', { class: 'mx-link', type: 'button', onclick: () => moGo(mr.id, 'requests') }, mr.title));
+    h('button', { class: 'mx-link', type: 'button', onclick: () => moGo(mr.id, 'requests') }, moName(mr)));
 }
 /* one row per request in the folder */
 function moReqRow(q, first) {
@@ -1045,7 +1047,7 @@ function moAddOne(mr) {
   const k = moKeyWord(mr), near = (q) => k && new RegExp('\\b' + k + '\\b', 'i').test([q.title, q.counterparty, q.detail].join(' '));
   const list = mxIntake().filter(q => !q.mt && !q.inMt && !mxClosed(q)).sort((a, b) => near(b) - near(a)).slice(0, 8);
   let pick = list[0]?.id;
-  const dlg = moDialog({ title: 'Add a Request', sub: `It keeps its number and its owner, and shows inside “${mr.title}”.`,
+  const dlg = moDialog({ title: 'Add a Request', sub: `It keeps its number and its owner, and shows inside “${moName(mr)}”.`,
     body: () => [h('div', { class: 'mo-tlist' }, ...list.map(q => h('button', { class: 'mo-task mo-pickrow' + (q.id === pick ? ' is-on' : ''), type: 'button', onclick: () => { pick = q.id; dlg.paint(); } },
       h('span', { class: 'mo-tick' + (q.id === pick ? ' is-on' : ''), html: PB_SVG.check }),
       h('span', { class: 'mo-task-t' }, h('span', { class: 'mo-task-n' }, q.title), h('span', { class: 'mo-task-s' }, `${q.id} · from ${q.submitter}${near(q) ? ' · Clavia suggests this one' : ''}`)))))],
@@ -1071,11 +1073,26 @@ function moAskAnswer(r, q) {
 /* the start of a matter's row in the Intake list: a folder that opens in place to show the requests inside */
 const MO_FOLDER_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>';
 const MO_FOLDER_OPEN_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 17.5v-10a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v1"/><path d="M3.5 17.5l2.6-6.2a1.5 1.5 0 0 1 1.4-.9h12.3a1 1 0 0 1 .9 1.4l-2.4 5.8a1.5 1.5 0 0 1-1.4.9H5a1.5 1.5 0 0 1-1.5-1z"/></svg>';
-function moFolderHead(r, st, repaint) {
+function moFolderHead(r) {
+  const n = moInside(r).length;
+  return [h('span', { class: 'mo-folder' + (n ? '' : ' is-empty'), 'data-tip': n ? `Matter · ${n + 1} requests` : 'Matter', 'aria-label': 'Matter', html: MO_FOLDER_SVG })];
+}
+/* the request number of a matter, with the arrow that opens and closes the requests underneath */
+function moFoldId(r, st, repaint) {
   const n = moInside(r).length, on = !!st.openMt?.[r.id];
-  if (!n) return [h('span', { class: 'mo-folder is-empty', 'data-tip': 'Matter', 'aria-label': 'Matter', html: MO_FOLDER_SVG })];
-  return [h('button', { class: 'mo-folder mo-fold' + (on ? ' is-open' : ''), type: 'button', 'aria-expanded': String(on),
-    'aria-label': on ? 'Close the folder' : 'Open the folder', 'data-tip': on ? 'Hide requests' : `Matter · ${n + 1} requests. Show them`,
-    html: on ? MO_FOLDER_OPEN_SVG : MO_FOLDER_SVG,
-    onclick: (e) => { e.stopPropagation(); (st.openMt ||= {})[r.id] = !on; save(); repaint(); } })];
+  if (!n) return h('span', { class: 'mx-req-id' }, r.id);
+  return h('span', { class: 'mo-fold-id' },
+    h('button', { class: 'mo-fold' + (on ? ' is-open' : ''), type: 'button', 'aria-expanded': String(on),
+      'aria-label': on ? 'Hide the requests inside' : 'Show the requests inside', 'data-tip': on ? 'Hide requests' : `Show ${mxPlural(n, 'more request')}`,
+      html: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+      onclick: (e) => { e.stopPropagation(); (st.openMt ||= {})[r.id] = !on; save(); repaint(); } }),
+    h('span', { class: 'mx-req-id' }, r.id));
+}
+/* the top of a matter's page: a folder and its name, then one quiet line */
+const moTitleRow = (title) => h('div', { class: 'mo-title-row' }, h('span', { class: 'mo-title-ic', 'aria-hidden': 'true', html: MO_FOLDER_SVG.replace(/width="16" height="16"/, 'width="26" height="26"') }), title);
+function moHeadLine(r) {
+  const n = moFolderSize(r), sep = () => h('span', { class: 'mt-sep' }, '·');
+  return h('div', { class: 'br-meta rqp-meta' }, h('span', {}, 'Matter'), sep(), h('span', { class: 'rqp-id' }, r.id), sep(),
+    h('button', { class: 'mx-link mo-head-n', type: 'button', onclick: () => { moSetTab('requests'); moRedraw(); } }, mxPlural(n, 'request')),
+    r.due ? sep() : null, r.due ? h('span', { class: 'rqp-due' }, 'Due ', mxDue(r.due, mxClosed(r))) : null);
 }

@@ -521,14 +521,20 @@ button.mo-frow:hover .mo-fn { text-decoration: underline; text-underline-offset:
 .mo-pickrow.is-on .mo-task-n { font-weight: 500; }
 /* a matter has 8 tabs; a little tighter so Activity stays in view (requests keep Intake's spacing) */
 .rqp-left .br-tabs:has(.br-tab:nth-of-type(8)) { gap: 9px; }
-/* a matter in the Intake list is a folder that opens in place: click the folder to show the requests inside */
-.mo-folder { flex: none; display: grid; place-items: center; color: var(--text-soft); }
-.mo-fold { appearance: none; width: 24px; height: 24px; margin: -4px -4px -4px -4px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; transition: background var(--fast) var(--ease), color var(--fast) var(--ease); }
+/* a matter in the Intake list is a folder; the arrow by its number opens and closes the requests underneath */
+.mo-folder { flex: none; display: grid; place-items: center; color: var(--text); }
+.mo-folder.is-empty { color: var(--text-faint); }
+.mo-fold-id { display: inline-flex; align-items: center; gap: 4px; margin-left: -4px; }
+.mo-fold { appearance: none; flex: none; display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 5px; background: none; color: var(--text-soft); cursor: pointer; transition: transform var(--fast) var(--ease), background var(--fast) var(--ease), color var(--fast) var(--ease); }
 .mo-fold:hover { background: var(--tint); color: var(--text); }
-.mo-fold.is-open { color: var(--text); }
+.mo-fold.is-open { transform: rotate(90deg); color: var(--text); }
 .mo-row-mt { gap: 7px; }
 .mo-sub-row { background: color-mix(in srgb, var(--tint) 60%, transparent); }
+.mo-sub-row > .pb-td:first-child { padding-left: 20px; }
 .mo-sub-row > .pb-td:nth-child(2) { padding-left: 23px; position: relative; }
 .mo-sub-row > .pb-td:nth-child(2)::before { content: ''; position: absolute; left: 7.5px; top: -1px; bottom: -1px; border-left: 1px solid var(--line-strong); }
-.mo-folder.is-empty { color: var(--text-faint); }
-.mo-fold { color: var(--text); }
+/* the top of a matter's page */
+.mo-title-row { display: flex; align-items: center; gap: 12px; }
+.mo-title-row .rqp-title { flex: 1; min-width: 0; }
+.mo-title-ic { flex: none; display: grid; color: var(--text-soft); }
+.mo-head-n { color: inherit; }
